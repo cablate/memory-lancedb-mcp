@@ -1,0 +1,17 @@
+{
+  "embedding": {
+    "apiKey": "${DEEPINFRA_API_KEY}",
+    "model": "Qwen/Qwen3-Embedding-8B",
+    "baseURL": "https://api.deepinfra.com/v1/openai",
+    "dimensions": 1024
+  },
+  "dbPath": "./memory-data",
+  "retrieval": {
+    "mode": "hybrid",
+    "vectorWeight": 0.7,
+    "bm25Weight": 0.3,
+    "rerank": "none"
+  },
+  "enableManagementTools": false,
+  "enableSelfImprovementTools": false
+}

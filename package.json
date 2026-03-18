@@ -1,0 +1,63 @@
+{
+  "name": "@cablate/memory-lancedb-mcp",
+  "version": "2.0.0",
+  "mcpName": "io.github.cablate/memory-lancedb",
+  "description": "MCP server for LanceDB-backed long-term memory with hybrid retrieval (Vector + BM25), cross-encoder rerank, multi-scope isolation, and memory lifecycle management",
+  "type": "module",
+  "main": "server.ts",
+  "bin": {
+    "memory-lancedb-mcp": "./bin/memory-lancedb-mcp.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "memory",
+    "lancedb",
+    "vector-search",
+    "bm25",
+    "hybrid-retrieval",
+    "rerank",
+    "ai-memory",
+    "long-term-memory"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cablate/memory-lancedb-mcp.git"
+  },
+  "homepage": "https://github.com/cablate/memory-lancedb-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/cablate/memory-lancedb-mcp/issues"
+  },
+  "author": "CabLate",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.26.2",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@sinclair/typebox": "0.34.48",
+    "apache-arrow": "18.1.0",
+    "openai": "^6.21.0",
+    "jiti": "^2.6.0"
+  },
+  "scripts": {
+    "start": "npx tsx server.ts",
+    "test": "node test/embedder-error-hints.test.mjs && node test/migrate-legacy-schema.test.mjs && node test/update-consistency-lancedb.test.mjs && node test/functional-e2e.mjs && node test/retriever-rerank-regression.mjs && node test/smart-memory-lifecycle.mjs && node test/smart-extractor-branches.mjs && node test/smart-metadata-v2.mjs && node test/vector-search-cosine.test.mjs && node test/context-support-e2e.mjs && node test/temporal-facts.test.mjs && node test/memory-update-supersede.test.mjs && node test/memory-upgrader-diagnostics.test.mjs && node --test test/workflow-fork-guards.test.mjs"
+  },
+  "devDependencies": {
+    "commander": "^14.0.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "tsx": "^4.19.0"
+  },
+  "peerDependenciesMeta": {
+    "tsx": {
+      "optional": true
+    }
+  },
+  "optionalDependencies": {
+    "@esbuild/win32-x64": "^0.27.4"
+  }
+}

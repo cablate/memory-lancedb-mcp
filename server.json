@@ -1,0 +1,44 @@
+{
+  "name": "io.github.cablate/memory-lancedb",
+  "version": "2.0.0",
+  "description": "MCP server for LanceDB-backed long-term memory with hybrid retrieval (Vector + BM25), cross-encoder rerank, multi-scope isolation, and memory lifecycle management",
+  "repository": {
+    "url": "https://github.com/cablate/memory-lancedb-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registry_name": "npm",
+      "name": "@cablate/memory-lancedb-mcp",
+      "version": "2.0.0",
+      "runtime": "node",
+      "environment_variables": [
+        {
+          "name": "EMBEDDING_API_KEY",
+          "description": "API key for the embedding provider (OpenAI-compatible)",
+          "required": true
+        },
+        {
+          "name": "EMBEDDING_MODEL",
+          "description": "Embedding model name (default: text-embedding-3-small)",
+          "required": false
+        },
+        {
+          "name": "EMBEDDING_BASE_URL",
+          "description": "Custom base URL for embedding API (for non-OpenAI providers)",
+          "required": false
+        },
+        {
+          "name": "MEMORY_DB_PATH",
+          "description": "Path to LanceDB storage directory",
+          "required": false
+        },
+        {
+          "name": "MEMORY_LANCEDB_CONFIG",
+          "description": "Path to JSON config file for advanced settings",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

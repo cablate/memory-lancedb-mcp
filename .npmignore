@@ -1,0 +1,17 @@
+node_modules/
+.git/
+.github/
+.serena/
+test/
+examples/
+scripts/
+skills/
+docs/
+*.zip
+*.tgz
+.DS_Store
+.gitignore
+.venv-skill-tools
+CHANGELOG*.md
+maintain-memory-lancedb-pro/
+validate-memory-lancedb-pro-pr/

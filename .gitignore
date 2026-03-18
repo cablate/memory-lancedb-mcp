@@ -1,0 +1,9 @@
+node_modules/
+.venv-skill-tools
+.DS_Store
+maintain-memory-lancedb-pro/
+skills/handle-memory-lancedb-pro-issue/
+skills/maintain-memory-lancedb-pro/
+skills/validate-memory-lancedb-pro-pr/
+test/addressing-identity-regression.mjs
+validate-memory-lancedb-pro-pr/.serena/
