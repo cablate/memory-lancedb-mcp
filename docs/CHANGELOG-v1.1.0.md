@@ -36,13 +36,13 @@
 - `src/retriever.ts` 已接入 `decayEngine.applySearchBoost()`，检索结果按生命周期分数重排
 - `tierManager` 已接入 recall 后维护流程，根据 recall 计数和 lifecycle score 回写 tier 变更
 - `memory_store`、regex fallback、迁移、session memory、upgrade 都统一写入 smart metadata
-- `openclaw.plugin.json` 已暴露 `decay` / `tier` 配置项
+- config 已暴露 `decay` / `tier` 配置项
 - 生命周期回归测试已加入 `npm test`
 
 仍保留的兼容路径：
 
 - 当 lifecycle decay 未启用或不可用时，retriever 仍可回退到旧的 `Recency Boost → Importance Weight → Time Decay` 排序链
-- 旧格式数据仍可读取，并可通过 `openclaw memory-pro upgrade` 统一补齐 metadata
+- 旧格式数据仍可读取，并可通过 `memory-pro upgrade` 统一补齐 metadata
 
 ---
 
@@ -223,14 +223,14 @@ extractMaxChars?: number;     // 送入 LLM 的最大字符数（默认 8000）
 #### 启动时旧记忆检测
 
 - 插件启动 5 秒后异步扫描旧格式记忆数量
-- 如发现旧格式记忆，在日志中输出提示：`Run 'openclaw memory-pro upgrade' to convert them.`
+- 如发现旧格式记忆，在日志中输出提示：`Run 'memory-pro upgrade' to convert them.`
 
 ### `src/retriever.ts` — 检索器
 
 - 接入 `decayEngine.applySearchBoost()`，检索结果按生命周期分数重排
 - 当 lifecycle decay 未启用或不可用时，可回退到旧的 `Recency Boost → Importance Weight → Time Decay` 排序链
 
-### `openclaw.plugin.json` — 插件配置清单
+### Config — 配置
 
 - 暴露 `decay` / `tier` 配置项，允许用户自定义衰减参数和晋升阈值
 
@@ -239,7 +239,7 @@ extractMaxChars?: number;     // 送入 LLM 的最大字符数（默认 8000）
 #### 新增 `memory-pro upgrade` 命令
 
 ```bash
-openclaw memory-pro upgrade [--dry-run] [--batch-size N] [--no-llm] [--limit N] [--scope SCOPE]
+memory-pro upgrade [--dry-run] [--batch-size N] [--no-llm] [--limit N] [--scope SCOPE]
 ```
 
 - `--dry-run`：仅统计旧记忆数量，不修改数据

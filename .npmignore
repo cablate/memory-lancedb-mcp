@@ -3,8 +3,6 @@ node_modules/
 .github/
 .serena/
 test/
-examples/
-scripts/
 skills/
 docs/
 *.zip
@@ -13,5 +11,5 @@ docs/
 .gitignore
 .venv-skill-tools
 CHANGELOG*.md
-maintain-memory-lancedb-pro/
-validate-memory-lancedb-pro-pr/
+CONTRIBUTING.md
+README_CN.md

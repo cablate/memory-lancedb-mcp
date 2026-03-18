@@ -1,4 +1,4 @@
-name: 🐛 Bug Report
+name: Bug Report
 description: Report a bug or unexpected behavior
 labels: ["bug"]
 body:
@@ -10,18 +10,18 @@ body:
   - type: input
     id: version
     attributes:
-      label: Plugin Version
-      description: "Run `openclaw memory-pro version` to check"
-      placeholder: "e.g. 1.0.22"
+      label: Package Version
+      description: "Check with `npm ls @cablate/memory-lancedb-mcp`"
+      placeholder: "e.g. 2.0.0"
     validations:
       required: true
 
   - type: input
-    id: openclaw-version
+    id: node-version
     attributes:
-      label: OpenClaw Version
-      description: "Run `openclaw --version` to check"
-      placeholder: "e.g. 2026.3.1"
+      label: Node.js Version
+      description: "Run `node --version` to check"
+      placeholder: "e.g. v22.0.0"
     validations:
       required: true
 
@@ -30,7 +30,7 @@ body:
     attributes:
       label: Bug Description
       description: A clear description of what happened
-      placeholder: "When I run `openclaw memory-pro search ...`, it throws..."
+      placeholder: "When I use memory_recall with ..., it throws..."
     validations:
       required: true
 
@@ -49,7 +49,7 @@ body:
       description: Minimal steps to reproduce the issue
       placeholder: |
         1. Set config ...
-        2. Run command ...
+        2. Call tool ...
         3. See error ...
     validations:
       required: true
@@ -68,11 +68,18 @@ body:
       options:
         - OpenAI
         - Jina
+        - DeepInfra
         - Gemini
         - Ollama
         - Other
     validations:
       required: false
+
+  - type: input
+    id: mcp-client
+    attributes:
+      label: MCP Client
+      placeholder: "e.g. Claude Desktop, Claude Code, Cursor, custom"
 
   - type: input
     id: os

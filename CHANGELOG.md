@@ -78,11 +78,11 @@ Breaking changes: None. Backward compatible with existing configurations.
 
 ## 1.0.18
 
-- Fix: sync `openclaw.plugin.json` version with `package.json`, so the OpenClaw plugin info shows the correct version.
+- Fix: sync `plugin manifest` version with `package.json`, so the plugin manifest shows the correct version.
 
 ## 1.0.17
 
-- Fix: adaptive-retrieval now strips OpenClaw-injected timestamp prefixes like `[Mon YYYY-MM-DD HH:MM ...] ...` to avoid skewing length-based heuristics.
+- Fix: adaptive-retrieval now strips runtime-injected timestamp prefixes like `[Mon YYYY-MM-DD HH:MM ...] ...` to avoid skewing length-based heuristics.
 - Improve: expanded SKIP/FORCE keyword patterns with Traditional Chinese variants.
 
 ## 1.0.16
@@ -116,7 +116,7 @@ Breaking changes: None. Backward compatible with existing configurations.
 
 ## 1.0.10
 
-- Fix: avoid blocking OpenClaw gateway startup on external network calls by running startup self-checks in the background with timeouts.
+- Fix: avoid blocking server startup on external network calls by running startup self-checks in the background with timeouts.
 
 ## 1.0.9
 
@@ -124,7 +124,7 @@ Breaking changes: None. Backward compatible with existing configurations.
 
 ## 1.0.8
 
-- Add: JSONL distill extractor supports optional agent allowlist via env var `OPENCLAW_JSONL_DISTILL_ALLOWED_AGENT_IDS` (default off / compatible).
+- Add: JSONL distill extractor supports optional agent allowlist via env var `JSONL_DISTILL_ALLOWED_AGENT_IDS` (default off / compatible).
 
 ## 1.0.7
 
@@ -151,7 +151,7 @@ Breaking changes: None. Backward compatible with existing configurations.
 ## 1.0.2
 
 - Fix: pass through `embedding.dimensions` to the OpenAI-compatible `/embeddings` request payload when explicitly configured.
-- Chore: unify plugin version fields (`openclaw.plugin.json` now matches `package.json`).
+- Chore: unify plugin version fields (`plugin manifest` now matches `package.json`).
 
 ## 1.0.1
 

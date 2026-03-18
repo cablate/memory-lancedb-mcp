@@ -61,7 +61,6 @@ function normalizeLegacyVector(value: unknown): number[] {
 function getDefaultLegacyPaths(): string[] {
   const home = homedir();
   return [
-    join(home, ".openclaw", "memory", "lancedb"),
     join(home, ".claude", "memory", "lancedb"),
     // Add more legacy paths as needed
   ];

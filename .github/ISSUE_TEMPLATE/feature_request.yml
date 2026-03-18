@@ -1,4 +1,4 @@
-name: ✨ Feature Request
+name: Feature Request
 description: Suggest a new feature or improvement
 labels: ["enhancement"]
 body:
@@ -21,7 +21,7 @@ body:
     attributes:
       label: Proposed Solution
       description: How would you like this to work?
-      placeholder: "It would be great if `openclaw memory-pro` could ..."
+      placeholder: "It would be great if memory_recall could ..."
     validations:
       required: true
 
@@ -35,14 +35,13 @@ body:
     id: scope
     attributes:
       label: Area
-      description: Which part of the plugin does this affect?
+      description: Which part of the server does this affect?
       options:
         - Retrieval / Search
         - Storage / Database
         - Embedding
-        - CLI Commands
+        - MCP Tools
         - Configuration
-        - Auto-capture / Auto-recall
         - Scopes / Access Control
         - Migration
         - Documentation

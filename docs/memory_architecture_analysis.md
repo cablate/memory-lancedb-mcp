@@ -1,7 +1,7 @@
 # `memory-lancedb-pro` 记忆架构分析
 
 > 更新时间：2026-03-09  
-> 基准：当前仓库中的 `README.md`、`openclaw.plugin.json`、`index.ts`、`src/*`、`cli.ts`  
+> 基准：当前仓库中的 `README.md`、`server.ts`、`config.ts`、`src/*`  
 > 结论：当前版本已经形成完整的“写入 -> 存储 -> 检索 -> 生命周期维护 -> 运维工具”闭环；智能提取、嵌入噪声检测、生命周期衰减、Tier 晋升/降级、迁移升级、CLI 与 Agent Tools 都已纳入同一主架构。
 
 ---
@@ -10,7 +10,7 @@
 
 ### 1.1 当前真实主路径
 
-当前版本不是“在旧向量记忆插件上补了几个实验模块”，而是一个完整的 OpenClaw Memory Plugin：
+当前版本不是“在旧向量记忆插件上补了几个实验模块”，而是一个完整的 MCP Memory Server：
 
 - `index.ts` 负责插件注册、配置解析、Hook 装配、CLI 装配、后台服务装配
 - `src/store.ts` 负责 LanceDB 表初始化、CRUD、向量检索、FTS/BM25、metadata 局部回写
@@ -42,10 +42,10 @@
 
 ```mermaid
 graph TD
-    subgraph Runtime["OpenClaw Runtime Surface"]
+    subgraph Runtime["MCP Runtime Surface"]
         U["用户消息 / Agent 对话"]
         T["Agent Tools<br/>memory_recall / store / forget / update"]
-        C["CLI<br/>openclaw memory-pro ..."]
+        C["CLI<br/>memory-pro CLI ..."]
         N["/new Hook<br/>sessionMemory"]
         X["可选批处理脚本<br/>jsonl_distill.py -> import"]
     end
@@ -141,7 +141,7 @@ graph TD
 
 ## 三、入口层：`index.ts` 是总装配器
 
-`index.ts` 不是简单导出插件对象，而是整个系统的总装配器，负责把各模块接入 OpenClaw：
+`index.ts` 不是简单导出插件对象，而是整个系统的总装配器，负责把各模块接入 MCP：
 
 - 解析配置并做 env var 展开
 - 创建 `MemoryStore`、`Embedder`、`MemoryRetriever`、`ScopeManager`
@@ -199,7 +199,7 @@ graph TD
 
 ```text
 message_received
-  -> 归一化实时入站文本（去 addressing / 去 OpenClaw 注入前缀）
+  -> 归一化实时入站文本（去 addressing / 去 runtime 注入前缀）
   -> 按 conversationKey 暂存最近少量原始用户文本
 
 agent_end
@@ -229,7 +229,7 @@ agent_end
 
 几个关键点：
 
-- 当前实现增加了一层“OpenClaw runtime 适配层”，用来消解 `prependContext`、inbound metadata、addressing、session snapshot 粒度等上游差异
+- 当前实现增加了一层“runtime 适配层”，用来消解 `prependContext`、inbound metadata、addressing、session snapshot 粒度等上游差异
 - 智能提取只有在产出持久化结果时，才会接管整个自动捕获路径
 - regex fallback 仍存在，但已经不再输出“半旧格式数据”
 - fallback 写入前仍做噪声过滤与重复检查
@@ -238,7 +238,7 @@ agent_end
   - `message_received` 的短暂内存队列
   - `agent_end.event.messages`
   - 当前进程内的极小 recent-text 缓存
-- 这层适配是 OpenClaw runtime 通用策略，不绑定 Discord/Telegram 等具体渠道协议字段
+- 这层适配是 runtime 通用策略，不绑定具体渠道协议字段
 
 ### 4.3 SmartExtractor 主链
 
