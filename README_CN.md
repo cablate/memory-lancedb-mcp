@@ -2,6 +2,8 @@
 
 # memory-lancedb-mcp
 
+> **基于 [CortexReach/memory-lancedb-pro](https://github.com/CortexReach/memory-lancedb-pro)** — 原作者 [win4r](https://github.com/win4r) 及贡献者们。从 OpenClaw 插件重构为独立 MCP 服务器。
+
 **通过 [MCP](https://modelcontextprotocol.io) 为 AI Agent 提供生产级长期记忆**
 
 *混合检索（向量 + BM25）、Cross-Encoder 重排序、多 Scope 隔离、记忆生命周期管理*

@@ -2,6 +2,8 @@
 
 # memory-lancedb-mcp
 
+> **Built on [CortexReach/memory-lancedb-pro](https://github.com/CortexReach/memory-lancedb-pro)** — original work by [win4r](https://github.com/win4r) and contributors. Refactored from OpenClaw plugin into a standalone MCP server.
+
 **Production-grade long-term memory for AI agents via [MCP](https://modelcontextprotocol.io)**
 
 *Hybrid retrieval (Vector + BM25), cross-encoder rerank, multi-scope isolation, memory lifecycle management.*
@@ -313,10 +315,6 @@ EMBEDDING_API_KEY=your-key npx tsx server.ts
 ```
 
 ---
-
-## Attribution
-
-This project is a fork of [CortexReach/memory-lancedb-pro](https://github.com/CortexReach/memory-lancedb-pro), refactored from an OpenClaw plugin into a standalone MCP server. Original work by [win4r](https://github.com/win4r) and contributors.
 
 ## License
 
