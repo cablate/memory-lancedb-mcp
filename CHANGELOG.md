@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.11
+
+- docs: update tool-positioning roadmap to reflect implemented state
+
+
 ## 2.0.10
 
 - feat: add lesson category, recall time filter, store feedback, dormant stats
