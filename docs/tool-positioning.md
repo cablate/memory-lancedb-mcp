@@ -24,7 +24,7 @@
 
 **定位**：寫入新記憶。AI agent 的「記住這件事」動作。
 
-**設計意圖**：不只是寫入 DB，而是一個有防護的寫入管線：
+**處理管線**：
 1. **Noise filter** — 自動過濾問候語、樣板文字、meta-question（「你是誰」之類的）
 2. **Workspace boundary** — 個人 profile 類資訊（名字、身份、偏好）會被攔截，引導寫入 USER.md 而非向量 DB
 3. **Embedding** — 文字轉向量
@@ -47,7 +47,7 @@
 
 **定位**：搜尋相關記憶。AI agent 的「我記得什麼」動作。
 
-**設計意圖**：混合檢索管線，不是簡單的向量搜尋：
+**處理管線**：
 1. **Scope 解析** — 只搜尋 agent 有權限的 scope
 2. **Hybrid retrieval** — Vector search + BM25 全文搜尋並行
 3. **RRF fusion** — Reciprocal Rank Fusion 合併兩路結果
@@ -89,7 +89,7 @@
 
 **定位**：更新現有記憶。最複雜的 tool，包含時序版本管理。
 
-**設計意圖**：區分兩種更新模式：
+**兩種更新模式**：
 
 **模式 A — Temporal Supersede（時序取代）**：
 - 觸發條件：修改 `text` + 記憶屬於 temporal versioned category（preference, entity）
@@ -182,25 +182,29 @@
 
 ---
 
-## 未接入的模組（Library Code）
+## 模組接入狀態
 
-以下模組存在於 `src/` 但**未在 server.ts 中直接使用**：
+### 已接入（server.ts 直接使用）
 
-| 模組 | 狀態 | 說明 |
-|------|------|------|
-| `smart-extractor.ts` | **未接入** | LLM-powered 資訊擷取（從對話中自動提取 facts/preferences）。需要額外 LLM API 配置。目前是獨立 library |
-| `tier-manager.ts` | **未接入** | 3-tier 生命週期管理（Peripheral ↔ Working ↔ Core）。設計完成但未整合進 recall/store 流程 |
-| `chunker.ts` | **間接使用** | Embedder 內部呼叫，超長文字自動分塊 |
-| `decay-engine.ts` | **已接入** | 透過 retriever 的 scoring pipeline 使用 |
-| `noise-filter.ts` | **已接入** | store 和 recall 都使用 |
-| `access-tracker.ts` | **已接入** | recall 時自動更新 access metadata |
+| 模組 | 接入方式 |
+|------|---------|
+| `noise-filter.ts` | store 和 recall 都使用 |
+| `decay-engine.ts` | 透過 retriever 的 scoring pipeline |
+| `access-tracker.ts` | recall 時自動更新 access metadata |
+| `chunker.ts` | embedder 內部呼叫，超長文字自動分塊 |
+| `smart-metadata.ts` | store 和 update 時生成 L0/L1/L2 摘要 |
+| `workspace-boundary.ts` | store 攔截 profile 資訊、recall 過濾結果 |
+| `scopes.ts` | 所有 tool 的權限檢查 |
+| `embedder.ts` | store/update 的向量化 |
+| `retriever.ts` | recall/forget/update 的混合檢索 |
+| `store.ts` | 所有 tool 的 LanceDB CRUD |
 
-### 未來擴充潛力
+### 未接入（Library Code）
 
-1. **SmartExtractor 整合** — 讓 `memory_store` 自動從長文中提取結構化 facts，而非只存原文
-2. **TierManager 整合** — 讓記憶自動在 Peripheral/Working/Core 之間流動，低使用頻率的記憶降級
-3. **新 Tool：memory_merge** — 合併相似記憶，減少冗餘
-4. **新 Tool：memory_timeline** — 按時間軸查看某個 fact_key 的版本歷史（利用現有 supersede 機制）
+| 模組 | 說明 |
+|------|------|
+| `smart-extractor.ts` | LLM-powered 資訊擷取（從對話中自動提取 facts/preferences）。需要額外 LLM API 配置 |
+| `tier-manager.ts` | 3-tier 生命週期管理（Peripheral ↔ Working ↔ Core）。設計完成但未整合 |
 
 ---
 
@@ -221,3 +225,148 @@ custom:{name}   ← 自定義
 攔截特定類型的記憶，引導到更適合的儲存位置：
 - 個人 profile 資訊（名字、年齡、職業、居住地）→ 引導至 USER.md
 - 配置可自訂哪些 slot 被攔截（`workspaceBoundary.userMdExclusive`）
+
+---
+
+# 改進路線圖
+
+## 現有痛點分析
+
+基於 AI agent 多工作區（每個 agent 獨立 `.memory-db/`）的實際使用模式，對照現有工具能力，識別出以下差距：
+
+### 痛點 1：Store 不回饋相似記憶
+
+**現狀**：cosine > 0.98 才攔截（完全重複），0.85~0.97 的高度相似記憶靜默通過。
+**後果**：同一主題的零散記憶越積越多，例如：
+- 「Cab 偏好直接溝通」
+- 「Cab 說一次就要聽進去」
+- 「與 Cab 討論設計時先提判斷再給選項」
+
+這三條語義高度相關，但都低於 0.98 門檻，全部存入。隨時間推移，碎片化記憶拉低 recall 品質。
+
+**改進**：Store 成功時，附帶回覆最相似的已存記憶（若 cosine > 0.8）。Agent 在存入當下就能判斷要不要調整或合併。
+
+---
+
+### 痛點 2：Recall 缺少時間維度
+
+**現狀**：只能用語義查詢搜尋，沒有時間範圍參數。
+**後果**：每次 session 啟動，agent 要用「猜關鍵字」的方式搜記憶。「最近三天學了什麼？」→ 做不到。
+
+**改進**：`memory_recall` 加 `since` 參數（epoch ms 或 `"3d"` / `"1w"` 格式），在 retriever 層加時間過濾。
+
+**啟動協議變化**：
+```
+# 現在
+memory_recall "當前任務相關關鍵字"      ← 命中率靠運氣
+
+# 改完後
+memory_recall query="*" since="3d"      ← 最近 3 天全部記憶
+memory_recall query="lancedb" since="7d" ← 特定主題 + 時間範圍
+```
+
+---
+
+### 痛點 3：Category 缺少 `lesson`
+
+**現狀**：踩坑教訓是 agent 最常記錄的類型，但沒有對應 category。被迫拆成 `fact`（技術事實）+ `decision`（行為決策）雙寫。
+**後果**：
+- 每次踩坑要存兩條，增加漏存風險
+- Recall 時無法 `category: "lesson"` 精準篩選踩坑記錄
+- 語義上是一個概念，硬拆成兩條不自然
+
+**改進**：加 `lesson` 到 MEMORY_CATEGORIES enum。Session-end checklist 從「踩坑必須雙層」簡化為「踩坑 → `memory_store category="lesson"`」。
+
+---
+
+### 痛點 4：Stats 缺少休眠記憶統計
+
+**現狀**：`memory_stats` 只輸出總數和分類計數，不知道有多少記憶從未被 recall。
+**後果**：記憶只增不減，agent 沒有動力整理。100 條記憶裡可能有 40 條從未被用過，但 agent 看不到。
+
+**改進**：`memory_stats` 加 dormant count（超過 N 天未被 access 的記憶數量）。不需要接入 TierManager，只需查詢 `last_accessed_at` 欄位。
+
+**搭配排程使用**：
+```yaml
+# 每週記憶衛生排程
+schedule: "0 9 * * 1"
+prompt: |
+  1. memory_stats 看 dormant count
+  2. dormant > 20 → 列出最舊的 10 條，判斷 forget 或保留
+  3. 檢查同 category 下有無高度重疊的記憶
+  4. 產出簡報寫入 memory/{date}.md
+```
+
+---
+
+### 痛點 5：Self-Improvement Tools 與現有治理體系衝突
+
+**現狀**：三個 self_improvement tools 寫入 `.learnings/` 目錄（LEARNINGS.md、ERRORS.md）。
+**問題**：在多 agent 工作區架構中，`.learnings/` 已被移除（與 CLAUDE.md Lessons Learned、knowledge/ 嚴重重疊）。這三個 tool 寫入的目錄不存在。
+
+**建議**：移除這三個 tool 的暴露，或重新定位為寫入向量記憶（而非檔案系統）。
+
+---
+
+## 實作優先級
+
+| 優先級 | 改進項 | 改動量 | 效益 |
+|--------|--------|--------|------|
+| **P1** | Store 回饋相似記憶 | 小 — 改 `handleMemoryStore` 回傳 | 從源頭提升記憶品質 |
+| **P1** | 加 `lesson` category | 小 — 加 enum 值 | 消除雙寫負擔 |
+| **P2** | Recall 加 `since` 參數 | 中 — 改 retriever 層 | 解決 session 啟動最大痛點 |
+| **P2** | Stats 加 dormant count | 小 — 加一個查詢 | 記憶衛生的觀測基礎 |
+| **P3** | Self-Improvement tools 重定位 | 中 — 移除或重寫 handler | 消除死功能 |
+
+## 推遲項目
+
+| 項目 | 理由 |
+|------|------|
+| memory_merge | 有價值但複雜度高（向量重算、supersede 鏈、metadata 合併）。先用 weekly hygiene 手動整理 |
+| memory_history | 版本追溯是低頻需求。Supersede 機制已在底層記錄，未來需要時再加 tool 暴露 |
+| TierManager 接入 | dormant count 能覆蓋 80% 需求。等 agent 規模更大時再考慮自動化生命週期 |
+| SmartExtractor 接入 | 需要額外 LLM API 配置且增加成本。當前 agent 手動 store 的品質已足夠 |
+| Dual-write 自動同步 | 檔案記憶（git-versioned 人類可讀）和向量記憶（AI 語義檢索）目的不同，強制同步模糊邊界 |
+
+## 使用整合建議
+
+### 啟動協議整合（Recall + since）
+
+改完 `since` 參數後，啟動協議第 5 步可標準化為：
+```
+1. memory_recall query="*" since="3d" limit=10   → 最近 3 天的記憶快照
+2. memory_recall query="{當前任務關鍵字}"          → 語義搜尋補充
+```
+
+兩步組合 = 確定性（時間）+ 語義（主題），覆蓋率大幅提升。
+
+### Session-End Checklist 整合（lesson + store 回饋）
+
+```
+# 改完後的 checklist 流程
+踩坑 → memory_store category="lesson"（一步到位，不再雙寫）
+       ↓
+     系統回饋：「Related: 2 similar lessons exist」
+       ↓
+     Agent 判斷：合併？跳過？補充？
+```
+
+### 週期性記憶衛生（Stats dormant + 排程）
+
+```yaml
+# schedules/weekly-memory-hygiene.yaml
+schedule: "0 9 * * 1"
+prompt: |
+  執行記憶衛生檢查：
+  1. memory_stats → 看 dormant count
+  2. dormant > 20 → memory_list 列出，逐條判斷 forget 或保留
+  3. 同 category 高度重疊 → 建議 merge（手動或未來 memory_merge tool）
+  4. 產出簡報寫入 memory/{date}.md
+```
+
+### Skill 輔助（sys-memory-hygiene）
+
+建立記憶整理的標準化方法：
+- 什麼條件觸發整理（dormant > 20、同主題 > 3 條）
+- 整理動作標準（forget 門檻、merge 判斷、保留理由）
+- 整理後驗證（重新跑 memory_stats 確認改善）
