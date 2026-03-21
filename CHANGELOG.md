@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.2
+
+- ci: fix version bump to correctly base on npm latest
+- ci: bump version based on npm latest to avoid collision
+- ci: allow MCP Registry publish to fail without blocking release
+- ci: fix workflow branch from main to master
+- docs: move attribution to top of README for visibility
+- chore: remove OpenClaw references, add GitHub infrastructure for standalone MCP server
+- feat: memory-lancedb-mcp — standalone MCP server for LanceDB-backed long-term memory
+
+
 ## 1.1.0-beta.2 (Smart Memory Beta + Access Reinforcement)
 
 This is a **beta** release published under the npm dist-tag **`beta`** (it does not affect the stable `latest` channel).
