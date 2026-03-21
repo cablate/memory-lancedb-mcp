@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.7
+
+- docs: add tool positioning guide with design intent and pipeline details
+
+
 ## 2.0.6
 
 - fix: remove broken tests that reference non-existent files from original repo
