@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.3
+
+- docs: rename README_CN to README_ZH, convert to Traditional Chinese
+
+
 ## 2.0.2
 
 - ci: fix version bump to correctly base on npm latest
