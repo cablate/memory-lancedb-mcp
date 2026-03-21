@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.6
+
+- fix: remove broken tests that reference non-existent files from original repo
+- docs: add project principles, dev SOP, and pre-publish safety net
+
+
 ## 2.0.5
 
 - test: improve test infrastructure
