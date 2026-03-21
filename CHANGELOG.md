@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.12
+
+- fix: remove tests that import deleted smart-extractor module
+- feat: add structured lesson fields (trigger/rule/principle) to memory metadata
+- feat: remove dead code, wire TierManager, add memory_merge and memory_history tools
+
+
 ## 2.0.11
 
 - docs: update tool-positioning roadmap to reflect implemented state
