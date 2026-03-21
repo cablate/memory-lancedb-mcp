@@ -62,6 +62,10 @@ memory_forget: resolve ID (or fuzzy search) → LanceDB delete
 memory_update: resolve ID → temporal versioning (if applicable) → re-embed → LanceDB update
 ```
 
+## Tool Positioning
+
+See `docs/tool-positioning.md` for each tool's functional positioning, design intent, processing pipeline, and design decisions.
+
 ## Tool Change Checklist
 
 When adding, removing, or renaming an MCP tool:
