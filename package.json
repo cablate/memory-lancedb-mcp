@@ -4,10 +4,18 @@
   "mcpName": "io.github.cablate/memory-lancedb",
   "description": "MCP server for LanceDB-backed long-term memory with hybrid retrieval (Vector + BM25), cross-encoder rerank, multi-scope isolation, and memory lifecycle management",
   "type": "module",
-  "main": "server.ts",
+  "main": "dist/server.js",
   "bin": {
-    "memory-lancedb-mcp": "./bin/memory-lancedb-mcp.mjs"
+    "memory-lancedb-mcp": "dist/server.js"
   },
+  "files": [
+    "dist/",
+    "assets/",
+    "config.example.json",
+    "server.json",
+    "LICENSE",
+    "README.md"
+  ],
   "keywords": [
     "mcp",
     "mcp-server",
@@ -38,10 +46,11 @@
     "@modelcontextprotocol/sdk": "^1.12.1",
     "@sinclair/typebox": "0.34.48",
     "apache-arrow": "18.1.0",
-    "openai": "^6.21.0",
-    "jiti": "^2.6.0"
+    "openai": "^6.21.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "start": "npx tsx server.ts",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\" \"*.ts\"",
@@ -59,14 +68,6 @@
     "prettier": "^3.5.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0"
-  },
-  "peerDependencies": {
-    "tsx": "^4.19.0"
-  },
-  "peerDependenciesMeta": {
-    "tsx": {
-      "optional": true
-    }
   },
   "optionalDependencies": {
     "@esbuild/win32-x64": "^0.27.4"
