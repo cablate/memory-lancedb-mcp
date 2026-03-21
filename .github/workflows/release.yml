@@ -41,7 +41,15 @@ jobs:
           git pull --rebase
 
       - name: Bump version
-        run: npm version patch --no-git-tag-version
+        run: |
+          # Get latest version from npm to avoid collision
+          NPM_VERSION=$(npm view @cablate/memory-lancedb-mcp version 2>/dev/null || echo "0.0.0")
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          # Use whichever is higher as base
+          if [ "$(printf '%s\n' "$NPM_VERSION" "$LOCAL_VERSION" | sort -V | tail -1)" = "$NPM_VERSION" ]; then
+            npm version --no-git-tag-version "$NPM_VERSION"
+          fi
+          npm version patch --no-git-tag-version
 
       - name: Update CHANGELOG
         run: |
