@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.13
+
+- fix: resolve all pre-existing TypeScript type errors
+
+
 ## 2.0.12
 
 - fix: remove tests that import deleted smart-extractor module
