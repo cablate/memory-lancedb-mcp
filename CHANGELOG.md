@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.15
+
+- build: compile to dist/ for npm, remove jiti runtime transpilation
+
+
 ## 2.0.14
 
 - docs: add banner and logo, update README headers
