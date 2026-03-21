@@ -156,6 +156,20 @@ const CORE_TOOLS = [
         importance: { type: "number", description: "Importance score 0-1 (default: 0.7)" },
         category: { type: "string", enum: MEMORY_CATEGORIES, description: "Memory category" },
         scope: { type: "string", description: "Memory scope (optional, defaults to default scope)" },
+        lesson_trigger: {
+          type: "string",
+          description: 'For category="lesson": what situation triggers this lesson (e.g. "when editing CSS layout")',
+        },
+        lesson_rule: {
+          type: "string",
+          description:
+            'For category="lesson": the derived rule to follow (e.g. "check for syntax errors before assuming cache issues")',
+        },
+        lesson_principle: {
+          type: "string",
+          description:
+            'For category="lesson": the universal principle (e.g. "verify assumptions with evidence before acting")',
+        },
       },
       required: ["text"],
     },
@@ -354,7 +368,17 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
   const text = results
     .map((r, i) => {
       const tag = getDisplayCategoryTag(r.entry);
-      return `${i + 1}. [${r.entry.id}] [${tag}] ${r.entry.text}`;
+      let line = `${i + 1}. [${r.entry.id}] [${tag}] ${r.entry.text}`;
+      // Surface lesson structure if present
+      const meta = parseSmartMetadata(r.entry.metadata, r.entry);
+      if (meta.lesson_trigger || meta.lesson_rule || meta.lesson_principle) {
+        const parts: string[] = [];
+        if (meta.lesson_trigger) parts.push(`  Trigger: ${meta.lesson_trigger}`);
+        if (meta.lesson_rule) parts.push(`  Rule: ${meta.lesson_rule}`);
+        if (meta.lesson_principle) parts.push(`  Principle: ${meta.lesson_principle}`);
+        line += "\n" + parts.join("\n");
+      }
+      return line;
     })
     .join("\n");
 
@@ -402,7 +426,14 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
     metadata: stringifySmartMetadata(
       buildSmartMetadata(
         { text, category: category as any, importance },
-        { l0_abstract: text, l1_overview: `- ${text}`, l2_content: text }
+        {
+          l0_abstract: text,
+          l1_overview: `- ${text}`,
+          l2_content: text,
+          lesson_trigger: params.lesson_trigger as string | undefined,
+          lesson_rule: params.lesson_rule as string | undefined,
+          lesson_principle: params.lesson_principle as string | undefined,
+        }
       )
     ),
   });

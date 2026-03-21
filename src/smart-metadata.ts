@@ -32,6 +32,12 @@ export interface SmartMemoryMetadata {
   superseded_by?: string;
   relations?: MemoryRelation[];
   source_session?: string;
+  /** Lesson-specific: what situation triggers this lesson */
+  lesson_trigger?: string;
+  /** Lesson-specific: the derived rule or action to follow */
+  lesson_rule?: string;
+  /** Lesson-specific: the universal principle behind this lesson */
+  lesson_principle?: string;
   [key: string]: unknown;
 }
 
@@ -188,6 +194,9 @@ export function parseSmartMetadata(rawMetadata: string | undefined, entry: Entry
     supersedes: normalizeOptionalString(parsed.supersedes),
     superseded_by: normalizeOptionalString(parsed.superseded_by),
     source_session: typeof parsed.source_session === "string" ? parsed.source_session : undefined,
+    lesson_trigger: normalizeOptionalString(parsed.lesson_trigger),
+    lesson_rule: normalizeOptionalString(parsed.lesson_rule),
+    lesson_principle: normalizeOptionalString(parsed.lesson_principle),
   };
 
   return normalized;
@@ -218,6 +227,11 @@ export function buildSmartMetadata(entry: EntryLike, patch: Partial<SmartMemoryM
     superseded_by:
       patch.superseded_by === undefined ? base.superseded_by : normalizeOptionalString(patch.superseded_by),
     source_session: typeof patch.source_session === "string" ? patch.source_session : base.source_session,
+    lesson_trigger:
+      patch.lesson_trigger === undefined ? base.lesson_trigger : normalizeOptionalString(patch.lesson_trigger),
+    lesson_rule: patch.lesson_rule === undefined ? base.lesson_rule : normalizeOptionalString(patch.lesson_rule),
+    lesson_principle:
+      patch.lesson_principle === undefined ? base.lesson_principle : normalizeOptionalString(patch.lesson_principle),
   };
 }
 
