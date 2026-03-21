@@ -145,13 +145,9 @@ export function loadConfig(): McpConfig {
     process.env.EMBEDDING_BASE_URL ||
     (typeof embeddingRaw.baseURL === "string" ? resolveEnvVars(embeddingRaw.baseURL) : undefined);
 
-  const dimensions =
-    parsePositiveInt(process.env.EMBEDDING_DIMENSIONS) ||
-    parsePositiveInt(embeddingRaw.dimensions);
+  const dimensions = parsePositiveInt(process.env.EMBEDDING_DIMENSIONS) || parsePositiveInt(embeddingRaw.dimensions);
 
-  const dbPath =
-    process.env.MEMORY_DB_PATH ||
-    (typeof raw.dbPath === "string" ? raw.dbPath : getDefaultDbPath());
+  const dbPath = process.env.MEMORY_DB_PATH || (typeof raw.dbPath === "string" ? raw.dbPath : getDefaultDbPath());
 
   return {
     embedding: {

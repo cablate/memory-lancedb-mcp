@@ -75,10 +75,10 @@ export function isNoise(text: string, options: NoiseFilterOptions = {}): boolean
 
   if (trimmed.length < 5) return true;
 
-  if (opts.filterDenials && DENIAL_PATTERNS.some(p => p.test(trimmed))) return true;
-  if (opts.filterMetaQuestions && META_QUESTION_PATTERNS.some(p => p.test(trimmed))) return true;
-  if (opts.filterBoilerplate && BOILERPLATE_PATTERNS.some(p => p.test(trimmed))) return true;
-  if (DIAGNOSTIC_ARTIFACT_PATTERNS.some(p => p.test(trimmed))) return true;
+  if (opts.filterDenials && DENIAL_PATTERNS.some((p) => p.test(trimmed))) return true;
+  if (opts.filterMetaQuestions && META_QUESTION_PATTERNS.some((p) => p.test(trimmed))) return true;
+  if (opts.filterBoilerplate && BOILERPLATE_PATTERNS.some((p) => p.test(trimmed))) return true;
+  if (DIAGNOSTIC_ARTIFACT_PATTERNS.some((p) => p.test(trimmed))) return true;
 
   return false;
 }
@@ -86,11 +86,7 @@ export function isNoise(text: string, options: NoiseFilterOptions = {}): boolean
 /**
  * Filter an array of items, removing noise entries.
  */
-export function filterNoise<T>(
-  items: T[],
-  getText: (item: T) => string,
-  options?: NoiseFilterOptions
-): T[] {
+export function filterNoise<T>(items: T[], getText: (item: T) => string, options?: NoiseFilterOptions): T[] {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  return items.filter(item => !isNoise(getText(item), opts));
+  return items.filter((item) => !isNoise(getText(item), opts));
 }

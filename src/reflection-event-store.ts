@@ -48,7 +48,10 @@ export function createReflectionEventId(params: {
   command: string;
 }): string {
   const safeRunAt = Number.isFinite(params.runAt) ? Math.max(0, Math.floor(params.runAt)) : Date.now();
-  const datePart = new Date(safeRunAt).toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
+  const datePart = new Date(safeRunAt)
+    .toISOString()
+    .replace(/[-:.TZ]/g, "")
+    .slice(0, 14);
   const digest = createHash("sha1")
     .update(`${safeRunAt}|${params.sessionKey}|${params.sessionId}|${params.agentId}|${params.command}`)
     .digest("hex")
@@ -57,13 +60,15 @@ export function createReflectionEventId(params: {
 }
 
 export function buildReflectionEventPayload(params: BuildReflectionEventPayloadParams): ReflectionEventPayload {
-  const eventId = params.eventId || createReflectionEventId({
-    runAt: params.runAt,
-    sessionKey: params.sessionKey,
-    sessionId: params.sessionId,
-    agentId: params.agentId,
-    command: params.command,
-  });
+  const eventId =
+    params.eventId ||
+    createReflectionEventId({
+      runAt: params.runAt,
+      sessionKey: params.sessionKey,
+      sessionId: params.sessionId,
+      agentId: params.agentId,
+      command: params.command,
+    });
 
   const metadata: ReflectionEventMetadata = {
     type: "memory-reflection-event",

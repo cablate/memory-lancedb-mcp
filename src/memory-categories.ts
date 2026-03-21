@@ -5,14 +5,7 @@
  * AgentMemory: cases, patterns
  */
 
-export const MEMORY_CATEGORIES = [
-  "profile",
-  "preferences",
-  "entities",
-  "events",
-  "cases",
-  "patterns",
-] as const;
+export const MEMORY_CATEGORIES = ["profile", "preferences", "entities", "events", "cases", "patterns"] as const;
 
 export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 
@@ -20,23 +13,13 @@ export type MemoryCategory = (typeof MEMORY_CATEGORIES)[number];
 export const ALWAYS_MERGE_CATEGORIES = new Set<MemoryCategory>(["profile"]);
 
 /** Categories that support MERGE decision from LLM dedup. */
-export const MERGE_SUPPORTED_CATEGORIES = new Set<MemoryCategory>([
-  "preferences",
-  "entities",
-  "patterns",
-]);
+export const MERGE_SUPPORTED_CATEGORIES = new Set<MemoryCategory>(["preferences", "entities", "patterns"]);
 
 /** Categories whose facts can be replaced over time without deleting history. */
-export const TEMPORAL_VERSIONED_CATEGORIES = new Set<MemoryCategory>([
-  "preferences",
-  "entities",
-]);
+export const TEMPORAL_VERSIONED_CATEGORIES = new Set<MemoryCategory>(["preferences", "entities"]);
 
 /** Categories that are append-only (CREATE or SKIP only, no MERGE). */
-export const APPEND_ONLY_CATEGORIES = new Set<MemoryCategory>([
-  "events",
-  "cases",
-]);
+export const APPEND_ONLY_CATEGORIES = new Set<MemoryCategory>(["events", "cases"]);
 
 /** Memory tier levels for lifecycle management. */
 export type MemoryTier = "core" | "working" | "peripheral";
@@ -50,14 +33,7 @@ export type CandidateMemory = {
 };
 
 /** Dedup decision from LLM. */
-export type DedupDecision =
-  | "create"
-  | "merge"
-  | "skip"
-  | "support"
-  | "contextualize"
-  | "contradict"
-  | "supersede";
+export type DedupDecision = "create" | "merge" | "skip" | "support" | "contextualize" | "contradict" | "supersede";
 
 export type DedupResult = {
   decision: DedupDecision;

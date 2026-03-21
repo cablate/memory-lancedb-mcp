@@ -13,10 +13,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 import { loadConfig, type McpConfig } from "./config.js";
 import { MemoryStore, validateStoragePath } from "./src/store.js";
@@ -40,10 +37,7 @@ import {
   isUserMdExclusiveMemory,
   type WorkspaceBoundaryConfig,
 } from "./src/workspace-boundary.js";
-import {
-  appendSelfImprovementEntry,
-  ensureSelfImprovementLearningFiles,
-} from "./src/self-improvement-files.js";
+import { appendSelfImprovementEntry, ensureSelfImprovementLearningFiles } from "./src/self-improvement-files.js";
 import { join } from "node:path";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 
@@ -73,7 +67,7 @@ async function sleep(ms: number): Promise<void> {
 
 async function retrieveWithRetry(
   retriever: MemoryRetriever,
-  ctx: Parameters<MemoryRetriever["retrieve"]>[0],
+  ctx: Parameters<MemoryRetriever["retrieve"]>[0]
 ): Promise<RetrievalResult[]> {
   let results = await retriever.retrieve(ctx);
   if (results.length === 0) {
@@ -266,7 +260,7 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
 
   const results = filterUserMdExclusiveRecallResults(
     await retrieveWithRetry(ctx.retriever, { query, limit, scopeFilter, category, source: "manual" }),
-    ctx.workspaceBoundary,
+    ctx.workspaceBoundary
   );
 
   if (results.length === 0) {
@@ -278,11 +272,15 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
   await Promise.allSettled(
     results.map((result) => {
       const meta = parseSmartMetadata(result.entry.metadata, result.entry);
-      return ctx.store.patchMetadata(result.entry.id, {
-        access_count: meta.access_count + 1,
-        last_accessed_at: now,
-      }, scopeFilter);
-    }),
+      return ctx.store.patchMetadata(
+        result.entry.id,
+        {
+          access_count: meta.access_count + 1,
+          last_accessed_at: now,
+        },
+        scopeFilter
+      );
+    })
   );
 
   const text = results
@@ -319,7 +317,9 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
   let existing: Awaited<ReturnType<MemoryStore["vectorSearch"]>> = [];
   try {
     existing = await ctx.store.vectorSearch(vector, 1, 0.1, [scope], { excludeInactive: true });
-  } catch { /* fail-open */ }
+  } catch {
+    /* fail-open */
+  }
 
   if (existing.length > 0 && existing[0].score > 0.98) {
     return textResult(`Similar memory already exists: "${existing[0].entry.text}"`);
@@ -334,14 +334,12 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
     metadata: stringifySmartMetadata(
       buildSmartMetadata(
         { text, category: category as any, importance },
-        { l0_abstract: text, l1_overview: `- ${text}`, l2_content: text },
-      ),
+        { l0_abstract: text, l1_overview: `- ${text}`, l2_content: text }
+      )
     ),
   });
 
-  return textResult(
-    `Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`,
-  );
+  return textResult(`Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`);
 }
 
 async function handleMemoryForget(ctx: ServerContext, params: Record<string, unknown>) {
@@ -406,7 +404,9 @@ async function handleMemoryUpdate(ctx: ServerContext, params: Record<string, unk
       resolvedId = results[0].entry.id;
     } else {
       const list = results
-        .map((r) => `- [${r.entry.id.slice(0, 8)}] ${r.entry.text.slice(0, 60)}${r.entry.text.length > 60 ? "..." : ""}`)
+        .map(
+          (r) => `- [${r.entry.id.slice(0, 8)}] ${r.entry.text.slice(0, 60)}${r.entry.text.length > 60 ? "..." : ""}`
+        )
         .join("\n");
       return textResult(`Multiple matches. Specify memoryId:\n${list}`);
     }
@@ -431,17 +431,23 @@ async function handleMemoryUpdate(ctx: ServerContext, params: Record<string, unk
         const newMeta = buildSmartMetadata(
           { text, category: existing.category },
           {
-            l0_abstract: text, l1_overview: meta.l1_overview, l2_content: text,
-            memory_category: meta.memory_category, tier: meta.tier,
+            l0_abstract: text,
+            l1_overview: meta.l1_overview,
+            l2_content: text,
+            memory_category: meta.memory_category,
+            tier: meta.tier,
             access_count: 0,
             confidence: importance !== undefined ? clamp01(importance, 0.7) : meta.confidence,
-            valid_from: now, fact_key: factKey, supersedes: resolvedId,
+            valid_from: now,
+            fact_key: factKey,
+            supersedes: resolvedId,
             relations: appendRelation([], { type: "supersedes", targetId: resolvedId }),
-          },
+          }
         );
 
         const newEntry = await ctx.store.store({
-          text, vector: newVector,
+          text,
+          vector: newVector,
           category: category ? (category as any) : existing.category,
           scope: existing.scope,
           importance: importance !== undefined ? clamp01(importance, 0.7) : existing.importance,
@@ -451,14 +457,18 @@ async function handleMemoryUpdate(ctx: ServerContext, params: Record<string, unk
         // Invalidate old record
         try {
           const invalidatedMeta = buildSmartMetadata(existing, {
-            fact_key: factKey, invalidated_at: now, superseded_by: newEntry.id,
+            fact_key: factKey,
+            invalidated_at: now,
+            superseded_by: newEntry.id,
             relations: appendRelation(meta.relations, { type: "superseded_by", targetId: newEntry.id }),
           });
           await ctx.store.update(resolvedId, { metadata: stringifySmartMetadata(invalidatedMeta) }, scopeFilter);
-        } catch { /* new record is source of truth */ }
+        } catch {
+          /* new record is source of truth */
+        }
 
         return textResult(
-          `Superseded memory ${resolvedId.slice(0, 8)}... → new version ${newEntry.id.slice(0, 8)}...: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}"`,
+          `Superseded memory ${resolvedId.slice(0, 8)}... → new version ${newEntry.id.slice(0, 8)}...: "${text.slice(0, 80)}${text.length > 80 ? "..." : ""}"`
         );
       }
     }
@@ -474,7 +484,7 @@ async function handleMemoryUpdate(ctx: ServerContext, params: Record<string, unk
   if (!updated) return textResult(`Memory ${resolvedId.slice(0, 8)}... not found or access denied.`);
 
   return textResult(
-    `Updated memory ${updated.id.slice(0, 8)}...: "${updated.text.slice(0, 80)}${updated.text.length > 80 ? "..." : ""}"`,
+    `Updated memory ${updated.id.slice(0, 8)}...: "${updated.text.slice(0, 80)}${updated.text.length > 80 ? "..." : ""}"`
   );
 }
 
@@ -546,7 +556,13 @@ async function handleSelfImprovementLog(_ctx: ServerContext, params: Record<stri
   const workspaceDir = process.env.MEMORY_WORKSPACE_DIR || process.cwd();
   const { id: entryId, filePath } = await appendSelfImprovementEntry({
     baseDir: workspaceDir,
-    type, summary, details, suggestedAction, category, area, priority,
+    type,
+    summary,
+    details,
+    suggestedAction,
+    category,
+    area,
+    priority,
     source: "memory-lancedb-mcp/self_improvement_log",
   });
 
@@ -580,18 +596,40 @@ async function handleSelfImprovementExtractSkill(_ctx: ServerContext, params: Re
 
   const summaryMatch = match[0].match(/### Summary\n([\s\S]*?)\n###/m);
   const summary = (summaryMatch?.[1] ?? "Summarize the source learning here.").trim();
-  const safeOutputDir = outputDir.replace(/\\/g, "/").split("/").filter((s) => s && s !== "." && s !== "..").join("/");
+  const safeOutputDir = outputDir
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter((s) => s && s !== "." && s !== "..")
+    .join("/");
   const skillDir = join(workspaceDir, safeOutputDir || "skills", skillName);
   await mkdir(skillDir, { recursive: true });
   const skillPath = join(skillDir, "SKILL.md");
-  const skillTitle = skillName.split("-").map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+  const skillTitle = skillName
+    .split("-")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ");
   const skillContent = [
-    "---", `name: ${skillName}`,
+    "---",
+    `name: ${skillName}`,
     `description: "Extracted from learning ${learningId}. Replace with a concise description."`,
-    "---", "", `# ${skillTitle}`, "", "## Why", summary, "",
-    "## When To Use", "- [TODO] Define trigger conditions", "",
-    "## Steps", "1. [TODO] Add repeatable workflow steps", "2. [TODO] Add verification steps", "",
-    "## Source Learning", `- Learning ID: ${learningId}`, `- Source File: .learnings/${sourceFile}`, "",
+    "---",
+    "",
+    `# ${skillTitle}`,
+    "",
+    "## Why",
+    summary,
+    "",
+    "## When To Use",
+    "- [TODO] Define trigger conditions",
+    "",
+    "## Steps",
+    "1. [TODO] Add repeatable workflow steps",
+    "2. [TODO] Add verification steps",
+    "",
+    "## Source Learning",
+    `- Learning ID: ${learningId}`,
+    `- Source File: .learnings/${sourceFile}`,
+    "",
   ].join("\n");
   await writeFile(skillPath, skillContent, "utf-8");
 
@@ -607,7 +645,9 @@ async function handleSelfImprovementExtractSkill(_ctx: ServerContext, params: Re
   const updatedLearningBody = learningBody.replace(match[0], updatedEntry);
   await writeFile(learningsPath, updatedLearningBody, "utf-8");
 
-  return textResult(`Extracted skill scaffold to ${safeOutputDir || "skills"}/${skillName}/SKILL.md and updated ${learningId}.`);
+  return textResult(
+    `Extracted skill scaffold to ${safeOutputDir || "skills"}/${skillName}/SKILL.md and updated ${learningId}.`
+  );
 }
 
 async function handleSelfImprovementReview(_ctx: ServerContext) {
@@ -678,7 +718,10 @@ async function main() {
   const retriever = createRetriever(store, embedder, config.retrieval, { decayEngine });
 
   const ctx: ServerContext = {
-    store, embedder, retriever, scopeManager,
+    store,
+    embedder,
+    retriever,
+    scopeManager,
     workspaceBoundary: undefined,
     config,
   };
@@ -693,10 +736,7 @@ async function main() {
   }
 
   // Create MCP server
-  const server = new Server(
-    { name: "memory-lancedb-mcp", version: "2.0.0" },
-    { capabilities: { tools: {} } },
-  );
+  const server = new Server({ name: "memory-lancedb-mcp", version: "2.0.0" }, { capabilities: { tools: {} } });
 
   // List tools
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

@@ -59,13 +59,15 @@ export function buildReflectionStorePayloads(params: BuildReflectionStorePayload
   payloads: ReflectionStorePayload[];
 } {
   const slices = extractInjectableReflectionSlices(params.reflectionText);
-  const eventId = params.eventId || createReflectionEventId({
-    runAt: params.runAt,
-    sessionKey: params.sessionKey,
-    sessionId: params.sessionId,
-    agentId: params.agentId,
-    command: params.command,
-  });
+  const eventId =
+    params.eventId ||
+    createReflectionEventId({
+      runAt: params.runAt,
+      sessionKey: params.sessionKey,
+      sessionId: params.sessionId,
+      agentId: params.agentId,
+      command: params.command,
+    });
 
   const payloads: ReflectionStorePayload[] = [
     buildReflectionEventPayload({
@@ -96,18 +98,20 @@ export function buildReflectionStorePayloads(params: BuildReflectionStorePayload
   payloads.push(...itemPayloads);
 
   if (params.writeLegacyCombined !== false && (slices.invariants.length > 0 || slices.derived.length > 0)) {
-    payloads.push(buildLegacyCombinedPayload({
-      slices,
-      scope: params.scope,
-      sessionKey: params.sessionKey,
-      sessionId: params.sessionId,
-      agentId: params.agentId,
-      command: params.command,
-      toolErrorSignals: params.toolErrorSignals,
-      runAt: params.runAt,
-      usedFallback: params.usedFallback,
-      sourceReflectionPath: params.sourceReflectionPath,
-    }));
+    payloads.push(
+      buildLegacyCombinedPayload({
+        slices,
+        scope: params.scope,
+        sessionKey: params.sessionKey,
+        sessionId: params.sessionId,
+        agentId: params.agentId,
+        command: params.command,
+        toolErrorSignals: params.toolErrorSignals,
+        runAt: params.runAt,
+        usedFallback: params.usedFallback,
+        sourceReflectionPath: params.sourceReflectionPath,
+      })
+    );
   }
 
   return { eventId, slices, payloads };
@@ -434,9 +438,7 @@ function isOwnedByAgent(metadata: Record<string, unknown>, agentId: string): boo
 
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => String(item).trim())
-    .filter(Boolean);
+  return value.map((item) => String(item).trim()).filter(Boolean);
 }
 
 function metadataTimestamp(metadata: Record<string, unknown>, fallbackTs: number): number {
@@ -564,15 +566,16 @@ export function loadReflectionMappedRowsFromEntries(params: LoadReflectionMapped
     }
   }
 
-  const sortedByKind = (kind: ReflectionMappedKind) => [...grouped.values()]
-    .filter((row) => row.kind === kind)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.latestTs !== a.latestTs) return b.latestTs - a.latestTs;
-      return a.text.localeCompare(b.text);
-    })
-    .slice(0, maxPerKind)
-    .map((row) => row.text);
+  const sortedByKind = (kind: ReflectionMappedKind) =>
+    [...grouped.values()]
+      .filter((row) => row.kind === kind)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.latestTs !== a.latestTs) return b.latestTs - a.latestTs;
+        return a.text.localeCompare(b.text);
+      })
+      .slice(0, maxPerKind)
+      .map((row) => row.text);
 
   return {
     userModel: sortedByKind("user-model"),

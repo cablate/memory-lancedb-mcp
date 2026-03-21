@@ -1,17 +1,7 @@
-import {
-  TEMPORAL_VERSIONED_CATEGORIES,
-  type MemoryCategory,
-  type MemoryTier,
-} from "./memory-categories.js";
+import { TEMPORAL_VERSIONED_CATEGORIES, type MemoryCategory, type MemoryTier } from "./memory-categories.js";
 import type { DecayableMemory } from "./decay-engine.js";
 
-type LegacyStoreCategory =
-  | "preference"
-  | "fact"
-  | "decision"
-  | "entity"
-  | "other"
-  | "reflection";
+type LegacyStoreCategory = "preference" | "fact" | "decision" | "entity" | "other" | "reflection";
 
 type EntryLike = {
   text?: string;
@@ -78,10 +68,7 @@ function normalizeTier(value: unknown): MemoryTier {
   }
 }
 
-export function reverseMapLegacyCategory(
-  oldCategory: LegacyStoreCategory | undefined,
-  text = "",
-): MemoryCategory {
+export function reverseMapLegacyCategory(oldCategory: LegacyStoreCategory | undefined, text = ""): MemoryCategory {
   switch (oldCategory) {
     case "preference":
       return "preferences";
@@ -92,10 +79,7 @@ export function reverseMapLegacyCategory(
     case "other":
       return "patterns";
     case "fact":
-      if (
-        /\b(my |i am |i'm |name is |叫我|我的|我是)\b/i.test(text) &&
-        text.length < 200
-      ) {
+      if (/\b(my |i am |i'm |name is |叫我|我的|我是)\b/i.test(text) && text.length < 200) {
         return "profile";
       }
       return "cases";
@@ -128,10 +112,7 @@ function normalizeOptionalTimestamp(value: unknown): number | undefined {
   return Math.floor(n);
 }
 
-export function deriveFactKey(
-  category: MemoryCategory,
-  abstract: string,
-): string | undefined {
+export function deriveFactKey(category: MemoryCategory, abstract: string): string | undefined {
   if (!TEMPORAL_VERSIONED_CATEGORIES.has(category)) return undefined;
 
   const trimmed = abstract.trim();
@@ -157,16 +138,13 @@ export function deriveFactKey(
 
 export function isMemoryActiveAt(
   metadata: Pick<SmartMemoryMetadata, "valid_from" | "invalidated_at">,
-  at = Date.now(),
+  at = Date.now()
 ): boolean {
   if (metadata.valid_from > at) return false;
   return !metadata.invalidated_at || metadata.invalidated_at > at;
 }
 
-export function parseSmartMetadata(
-  rawMetadata: string | undefined,
-  entry: EntryLike = {},
-): SmartMemoryMetadata {
+export function parseSmartMetadata(rawMetadata: string | undefined, entry: EntryLike = {}): SmartMemoryMetadata {
   let parsed: Record<string, unknown> = {};
   if (rawMetadata) {
     try {
@@ -181,9 +159,7 @@ export function parseSmartMetadata(
 
   const text = entry.text ?? "";
   const timestamp =
-    typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp)
-      ? entry.timestamp
-      : Date.now();
+    typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
 
   const memoryCategory = reverseMapLegacyCategory(entry.category, text);
   const l0 = normalizeText(parsed.l0_abstract, text);
@@ -196,48 +172,34 @@ export function parseSmartMetadata(
     l1_overview: normalizeText(parsed.l1_overview, defaultOverview(l0)),
     l2_content: l2,
     memory_category:
-      typeof parsed.memory_category === "string"
-        ? (parsed.memory_category as MemoryCategory)
-        : memoryCategory,
+      typeof parsed.memory_category === "string" ? (parsed.memory_category as MemoryCategory) : memoryCategory,
     tier: normalizeTier(parsed.tier),
     access_count: clampCount(parsed.access_count, 0),
     confidence: clamp01(parsed.confidence, 0.7),
     last_accessed_at: clampCount(parsed.last_accessed_at, timestamp),
     valid_from: validFrom,
-    invalidated_at:
-      invalidatedAt && invalidatedAt >= validFrom ? invalidatedAt : undefined,
+    invalidated_at: invalidatedAt && invalidatedAt >= validFrom ? invalidatedAt : undefined,
     fact_key:
       normalizeOptionalString(parsed.fact_key) ??
       deriveFactKey(
-        typeof parsed.memory_category === "string"
-          ? (parsed.memory_category as MemoryCategory)
-          : memoryCategory,
-        l0,
+        typeof parsed.memory_category === "string" ? (parsed.memory_category as MemoryCategory) : memoryCategory,
+        l0
       ),
     supersedes: normalizeOptionalString(parsed.supersedes),
     superseded_by: normalizeOptionalString(parsed.superseded_by),
-    source_session:
-      typeof parsed.source_session === "string" ? parsed.source_session : undefined,
+    source_session: typeof parsed.source_session === "string" ? parsed.source_session : undefined,
   };
 
   return normalized;
 }
 
-export function buildSmartMetadata(
-  entry: EntryLike,
-  patch: Partial<SmartMemoryMetadata> = {},
-): SmartMemoryMetadata {
+export function buildSmartMetadata(entry: EntryLike, patch: Partial<SmartMemoryMetadata> = {}): SmartMemoryMetadata {
   const base = parseSmartMetadata(entry.metadata, entry);
   const l0Abstract = normalizeText(patch.l0_abstract, base.l0_abstract);
-  const nextCategory =
-    typeof patch.memory_category === "string"
-      ? patch.memory_category
-      : base.memory_category;
+  const nextCategory = typeof patch.memory_category === "string" ? patch.memory_category : base.memory_category;
   const validFrom = normalizeTimestamp(patch.valid_from, base.valid_from);
   const invalidatedAt =
-    patch.invalidated_at === undefined
-      ? base.invalidated_at
-      : normalizeOptionalTimestamp(patch.invalidated_at);
+    patch.invalidated_at === undefined ? base.invalidated_at : normalizeOptionalTimestamp(patch.invalidated_at);
   return {
     ...base,
     ...patch,
@@ -248,29 +210,14 @@ export function buildSmartMetadata(
     tier: normalizeTier(patch.tier ?? base.tier),
     access_count: clampCount(patch.access_count, base.access_count),
     confidence: clamp01(patch.confidence, base.confidence),
-    last_accessed_at: clampCount(
-      patch.last_accessed_at,
-      base.last_accessed_at || entry.timestamp || Date.now(),
-    ),
+    last_accessed_at: clampCount(patch.last_accessed_at, base.last_accessed_at || entry.timestamp || Date.now()),
     valid_from: validFrom,
-    invalidated_at:
-      invalidatedAt && invalidatedAt >= validFrom ? invalidatedAt : undefined,
-    fact_key:
-      normalizeOptionalString(patch.fact_key) ??
-      base.fact_key ??
-      deriveFactKey(nextCategory, l0Abstract),
-    supersedes:
-      patch.supersedes === undefined
-        ? base.supersedes
-        : normalizeOptionalString(patch.supersedes),
+    invalidated_at: invalidatedAt && invalidatedAt >= validFrom ? invalidatedAt : undefined,
+    fact_key: normalizeOptionalString(patch.fact_key) ?? base.fact_key ?? deriveFactKey(nextCategory, l0Abstract),
+    supersedes: patch.supersedes === undefined ? base.supersedes : normalizeOptionalString(patch.supersedes),
     superseded_by:
-      patch.superseded_by === undefined
-        ? base.superseded_by
-        : normalizeOptionalString(patch.superseded_by),
-    source_session:
-      typeof patch.source_session === "string"
-        ? patch.source_session
-        : base.source_session,
+      patch.superseded_by === undefined ? base.superseded_by : normalizeOptionalString(patch.superseded_by),
+    source_session: typeof patch.source_session === "string" ? patch.source_session : base.source_session,
   };
 }
 
@@ -282,18 +229,15 @@ const MAX_RELATIONS = 16;
 /**
  * Append a relation to an existing relations array, deduplicating by type+targetId.
  */
-export function appendRelation(
-  existing: unknown,
-  relation: MemoryRelation,
-): MemoryRelation[] {
+export function appendRelation(existing: unknown, relation: MemoryRelation): MemoryRelation[] {
   const rows = Array.isArray(existing)
     ? existing.filter(
-      (item): item is MemoryRelation =>
-        !!item &&
-        typeof item === "object" &&
-        typeof (item as { type?: unknown }).type === "string" &&
-        typeof (item as { targetId?: unknown }).targetId === "string",
-    )
+        (item): item is MemoryRelation =>
+          !!item &&
+          typeof item === "object" &&
+          typeof (item as { type?: unknown }).type === "string" &&
+          typeof (item as { targetId?: unknown }).targetId === "string"
+      )
     : [];
 
   if (rows.some((item) => item.type === relation.type && item.targetId === relation.targetId)) {
@@ -303,9 +247,7 @@ export function appendRelation(
   return [...rows, relation];
 }
 
-export function stringifySmartMetadata(
-  metadata: SmartMemoryMetadata | Record<string, unknown>,
-): string {
+export function stringifySmartMetadata(metadata: SmartMemoryMetadata | Record<string, unknown>): string {
   const capped = { ...metadata } as Record<string, unknown>;
 
   // Cap array fields to prevent metadata bloat
@@ -322,22 +264,14 @@ export function stringifySmartMetadata(
   return JSON.stringify(capped);
 }
 
-export function toLifecycleMemory(
-  id: string,
-  entry: EntryLike,
-): LifecycleMemory {
+export function toLifecycleMemory(id: string, entry: EntryLike): LifecycleMemory {
   const metadata = parseSmartMetadata(entry.metadata, entry);
   const createdAt =
-    typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp)
-      ? entry.timestamp
-      : Date.now();
+    typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
 
   return {
     id,
-    importance:
-      typeof entry.importance === "number" && Number.isFinite(entry.importance)
-        ? entry.importance
-        : 0.7,
+    importance: typeof entry.importance === "number" && Number.isFinite(entry.importance) ? entry.importance : 0.7,
     confidence: metadata.confidence,
     tier: metadata.tier,
     accessCount: metadata.access_count,
@@ -350,21 +284,17 @@ export function toLifecycleMemory(
  * Parse a memory entry into both a DecayableMemory (for the decay engine)
  * and the raw SmartMemoryMetadata (for in-place mutation before write-back).
  */
-export function getDecayableFromEntry(
-  entry: EntryLike & { id?: string },
-): { memory: DecayableMemory; meta: SmartMemoryMetadata } {
+export function getDecayableFromEntry(entry: EntryLike & { id?: string }): {
+  memory: DecayableMemory;
+  meta: SmartMemoryMetadata;
+} {
   const meta = parseSmartMetadata(entry.metadata, entry);
   const createdAt =
-    typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp)
-      ? entry.timestamp
-      : Date.now();
+    typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
 
   const memory: DecayableMemory = {
     id: (entry as { id?: string }).id ?? "",
-    importance:
-      typeof entry.importance === "number" && Number.isFinite(entry.importance)
-        ? entry.importance
-        : 0.7,
+    importance: typeof entry.importance === "number" && Number.isFinite(entry.importance) ? entry.importance : 0.7,
     confidence: meta.confidence,
     tier: meta.tier,
     accessCount: meta.access_count,
@@ -381,9 +311,18 @@ export function getDecayableFromEntry(
 
 /** Predefined context vocabulary for support slices */
 export const SUPPORT_CONTEXT_VOCABULARY = [
-  "general", "morning", "afternoon", "evening", "night",
-  "weekday", "weekend", "work", "leisure",
-  "summer", "winter", "travel",
+  "general",
+  "morning",
+  "afternoon",
+  "evening",
+  "night",
+  "weekday",
+  "weekend",
+  "work",
+  "leisure",
+  "summer",
+  "winter",
+  "travel",
 ] as const;
 
 export type SupportContext = (typeof SUPPORT_CONTEXT_VOCABULARY)[number] | string;
@@ -396,14 +335,14 @@ export interface ContextualSupport {
   context: SupportContext;
   confirmations: number;
   contradictions: number;
-  strength: number;       // confirmations / (confirmations + contradictions)
+  strength: number; // confirmations / (confirmations + contradictions)
   last_observed_at: number;
 }
 
 /** V2 support info with per-context slices */
 export interface SupportInfoV2 {
-  global_strength: number;      // weighted average across all slices
-  total_observations: number;   // sum of all confirmations + contradictions
+  global_strength: number; // weighted average across all slices
+  total_observations: number; // sum of all confirmations + contradictions
   slices: ContextualSupport[];
 }
 
@@ -422,16 +361,33 @@ export function normalizeContext(raw: string | undefined): SupportContext {
 
   // Common Chinese/English mappings
   const aliases: Record<string, SupportContext> = {
-    "早上": "morning", "上午": "morning", "早晨": "morning",
-    "下午": "afternoon", "傍晚": "evening", "晚上": "evening",
-    "深夜": "night", "夜晚": "night", "凌晨": "night",
-    "工作日": "weekday", "平时": "weekday",
-    "周末": "weekend", "假日": "weekend", "休息日": "weekend",
-    "工作": "work", "上班": "work", "办公": "work",
-    "休闲": "leisure", "放松": "leisure", "休息": "leisure",
-    "夏天": "summer", "夏季": "summer",
-    "冬天": "winter", "冬季": "winter",
-    "旅行": "travel", "出差": "travel", "旅游": "travel",
+    早上: "morning",
+    上午: "morning",
+    早晨: "morning",
+    下午: "afternoon",
+    傍晚: "evening",
+    晚上: "evening",
+    深夜: "night",
+    夜晚: "night",
+    凌晨: "night",
+    工作日: "weekday",
+    平时: "weekday",
+    周末: "weekend",
+    假日: "weekend",
+    休息日: "weekend",
+    工作: "work",
+    上班: "work",
+    办公: "work",
+    休闲: "leisure",
+    放松: "leisure",
+    休息: "leisure",
+    夏天: "summer",
+    夏季: "summer",
+    冬天: "winter",
+    冬季: "winter",
+    旅行: "travel",
+    出差: "travel",
+    旅游: "travel",
   };
 
   return aliases[lower] || lower; // keep as custom context if not mapped
@@ -455,15 +411,15 @@ export function parseSupportInfo(raw: unknown): SupportInfoV2 {
     return {
       global_strength: typeof obj.global_strength === "number" ? obj.global_strength : 0.5,
       total_observations: typeof obj.total_observations === "number" ? obj.total_observations : 0,
-      slices: (obj.slices as Record<string, unknown>[]).filter(
-        s => s && typeof s.context === "string",
-      ).map(s => ({
-        context: String(s.context),
-        confirmations: typeof s.confirmations === "number" && s.confirmations >= 0 ? s.confirmations : 0,
-        contradictions: typeof s.contradictions === "number" && s.contradictions >= 0 ? s.contradictions : 0,
-        strength: typeof s.strength === "number" && s.strength >= 0 && s.strength <= 1 ? s.strength : 0.5,
-        last_observed_at: typeof s.last_observed_at === "number" ? s.last_observed_at : Date.now(),
-      })),
+      slices: (obj.slices as Record<string, unknown>[])
+        .filter((s) => s && typeof s.context === "string")
+        .map((s) => ({
+          context: String(s.context),
+          confirmations: typeof s.confirmations === "number" && s.confirmations >= 0 ? s.confirmations : 0,
+          contradictions: typeof s.contradictions === "number" && s.contradictions >= 0 ? s.contradictions : 0,
+          strength: typeof s.strength === "number" && s.strength >= 0 && s.strength <= 1 ? s.strength : 0.5,
+          last_observed_at: typeof s.last_observed_at === "number" ? s.last_observed_at : Date.now(),
+        })),
     };
   }
 
@@ -476,13 +432,15 @@ export function parseSupportInfo(raw: unknown): SupportInfoV2 {
   return {
     global_strength: total > 0 ? conf / total : 0.5,
     total_observations: total,
-    slices: [{
-      context: "general",
-      confirmations: conf,
-      contradictions: contra,
-      strength: total > 0 ? conf / total : 0.5,
-      last_observed_at: Date.now(),
-    }],
+    slices: [
+      {
+        context: "general",
+        confirmations: conf,
+        contradictions: contra,
+        strength: total > 0 ? conf / total : 0.5,
+        last_observed_at: Date.now(),
+      },
+    ],
   };
 }
 
@@ -493,13 +451,13 @@ export function parseSupportInfo(raw: unknown): SupportInfoV2 {
 export function updateSupportStats(
   existing: SupportInfoV2,
   contextLabel: string | undefined,
-  event: "support" | "contradict",
+  event: "support" | "contradict"
 ): SupportInfoV2 {
   const ctx = normalizeContext(contextLabel);
-  const base = { ...existing, slices: [...existing.slices.map(s => ({ ...s }))] };
+  const base = { ...existing, slices: [...existing.slices.map((s) => ({ ...s }))] };
 
   // Find or create the context slice
-  let slice = base.slices.find(s => s.context === ctx);
+  let slice = base.slices.find((s) => s.context === ctx);
   if (!slice) {
     slice = { context: ctx, confirmations: 0, contradictions: 0, strength: 0.5, last_observed_at: Date.now() };
     base.slices.push(slice);
@@ -517,10 +475,10 @@ export function updateSupportStats(
   // into total_observations/global_strength, so those values may drift slightly
   // over many truncation cycles. This is an accepted trade-off for bounded JSON size.
   let slices = base.slices;
-  let droppedConf = 0, droppedContra = 0;
+  let droppedConf = 0,
+    droppedContra = 0;
   if (slices.length > MAX_SUPPORT_SLICES) {
-    slices = slices
-      .sort((a, b) => b.last_observed_at - a.last_observed_at);
+    slices = slices.sort((a, b) => b.last_observed_at - a.last_observed_at);
     const dropped = slices.slice(MAX_SUPPORT_SLICES);
     for (const d of dropped) {
       droppedConf += d.confirmations;
@@ -530,7 +488,8 @@ export function updateSupportStats(
   }
 
   // Recompute global strength including evidence from dropped slices
-  let totalConf = droppedConf, totalContra = droppedContra;
+  let totalConf = droppedConf,
+    totalContra = droppedContra;
   for (const s of slices) {
     totalConf += s.confirmations;
     totalContra += s.contradictions;

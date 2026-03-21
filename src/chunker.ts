@@ -87,7 +87,7 @@ function countLines(s: string): number {
 function findLastIndexWithin(text: string, re: RegExp, start: number, end: number): number {
   // Find last match start index for regex within [start, end).
   // NOTE: `re` must NOT be global; we will scan manually.
-  let last = -1;
+  const last = -1;
   for (let i = end - 1; i >= start; i--) {
     if (re.test(text[i])) return i;
   }

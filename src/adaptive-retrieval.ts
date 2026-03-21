@@ -10,7 +10,7 @@ const SKIP_PATTERNS = [
   // Greetings & pleasantries
   /^(hi|hello|hey|good\s*(morning|afternoon|evening|night)|greetings|yo|sup|howdy|what'?s up)\b/i,
   // System/bot commands
-  /^\//,  // slash commands
+  /^\//, // slash commands
   /^(run|build|test|ls|cd|git|npm|pip|docker|curl|cat|grep|find|make|sudo)\b/i,
   // Simple affirmations/negations
   /^(yes|no|yep|nope|ok|okay|sure|fine|thanks|thank you|thx|ty|got it|understood|cool|nice|great|good|perfect|awesome|👍|👎|✅|❌)\s*[.!]?$/i,
@@ -72,17 +72,17 @@ export function shouldSkipRetrieval(query: string, minLength?: number): boolean 
 
   // Force retrieve if query has memory-related intent (checked FIRST,
   // before length check, so short CJK queries like "你记得吗" aren't skipped)
-  if (FORCE_RETRIEVE_PATTERNS.some(p => p.test(trimmed))) return false;
+  if (FORCE_RETRIEVE_PATTERNS.some((p) => p.test(trimmed))) return false;
 
   // Too short to be meaningful
   if (trimmed.length < 5) return true;
 
   // Skip if matches any skip pattern
-  if (SKIP_PATTERNS.some(p => p.test(trimmed))) return true;
+  if (SKIP_PATTERNS.some((p) => p.test(trimmed))) return true;
 
   // If caller provides a custom minimum length, use it
   if (minLength !== undefined && minLength > 0) {
-    if (trimmed.length < minLength && !trimmed.includes('?') && !trimmed.includes('？')) return true;
+    if (trimmed.length < minLength && !trimmed.includes("?") && !trimmed.includes("？")) return true;
     return false;
   }
 
@@ -90,7 +90,7 @@ export function shouldSkipRetrieval(query: string, minLength?: number): boolean 
   // CJK characters carry more meaning per character, so use a lower threshold
   const hasCJK = /[\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/.test(trimmed);
   const defaultMinLength = hasCJK ? 6 : 15;
-  if (trimmed.length < defaultMinLength && !trimmed.includes('?') && !trimmed.includes('？')) return true;
+  if (trimmed.length < defaultMinLength && !trimmed.includes("?") && !trimmed.includes("？")) return true;
 
   // Default: do retrieve
   return false;

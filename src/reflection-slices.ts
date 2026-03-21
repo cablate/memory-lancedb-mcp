@@ -85,9 +85,7 @@ export function normalizeReflectionSliceLine(line: string): string {
 }
 
 export function sanitizeReflectionSliceLines(lines: string[]): string[] {
-  return lines
-    .map(normalizeReflectionSliceLine)
-    .filter((line) => !isPlaceholderReflectionSliceLine(line));
+  return lines.map(normalizeReflectionSliceLine).filter((line) => !isPlaceholderReflectionSliceLine(line));
 }
 
 const INJECTABLE_REFLECTION_BLOCK_PATTERNS: RegExp[] = [
@@ -100,25 +98,30 @@ const INJECTABLE_REFLECTION_BLOCK_PATTERNS: RegExp[] = [
 export function isUnsafeInjectableReflectionLine(line: string): boolean {
   const normalized = normalizeReflectionSliceLine(line);
   if (!normalized) return true;
-  return INJECTABLE_REFLECTION_BLOCK_PATTERNS.some((pattern) =>
-    pattern.test(normalized),
-  );
+  return INJECTABLE_REFLECTION_BLOCK_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 export function sanitizeInjectableReflectionLines(lines: string[]): string[] {
-  return sanitizeReflectionSliceLines(lines).filter(
-    (line) => !isUnsafeInjectableReflectionLine(line),
-  );
+  return sanitizeReflectionSliceLines(lines).filter((line) => !isUnsafeInjectableReflectionLine(line));
 }
 
 function isInvariantRuleLike(line: string): boolean {
-  return /^(always|never|when\b|if\b|before\b|after\b|prefer\b|avoid\b|require\b|only\b|do not\b|must\b|should\b)/i.test(line) ||
-    /\b(must|should|never|always|prefer|avoid|required?)\b/i.test(line);
+  return (
+    /^(always|never|when\b|if\b|before\b|after\b|prefer\b|avoid\b|require\b|only\b|do not\b|must\b|should\b)/i.test(
+      line
+    ) || /\b(must|should|never|always|prefer|avoid|required?)\b/i.test(line)
+  );
 }
 
 function isDerivedDeltaLike(line: string): boolean {
-  return /^(this run|next run|going forward|follow-up|re-check|retest|verify|confirm|avoid repeating|adjust|change|update|retry|keep|watch)\b/i.test(line) ||
-    /\b(this run|next run|delta|change|adjust|retry|re-check|retest|verify|confirm|avoid repeating|follow-up)\b/i.test(line);
+  return (
+    /^(this run|next run|going forward|follow-up|re-check|retest|verify|confirm|avoid repeating|adjust|change|update|retry|keep|watch)\b/i.test(
+      line
+    ) ||
+    /\b(this run|next run|delta|change|adjust|retry|re-check|retest|verify|confirm|avoid repeating|follow-up)\b/i.test(
+      line
+    )
+  );
 }
 
 function isOpenLoopAction(line: string): boolean {
@@ -126,11 +129,16 @@ function isOpenLoopAction(line: string): boolean {
 }
 
 export function extractReflectionLessons(reflectionText: string): string[] {
-  return sanitizeReflectionSliceLines(parseSectionBullets(reflectionText, "Lessons & pitfalls (symptom / cause / fix / prevention)"));
+  return sanitizeReflectionSliceLines(
+    parseSectionBullets(reflectionText, "Lessons & pitfalls (symptom / cause / fix / prevention)")
+  );
 }
 
 export function extractReflectionLearningGovernanceCandidates(reflectionText: string): ReflectionGovernanceEntry[] {
-  const section = extractSectionMarkdown(reflectionText, "Learning governance candidates (.learnings / promotion / skill extraction)");
+  const section = extractSectionMarkdown(
+    reflectionText,
+    "Learning governance candidates (.learnings / promotion / skill extraction)"
+  );
   if (!section) return [];
 
   const entryBlocks = section
@@ -149,14 +157,17 @@ export function extractReflectionLearningGovernanceCandidates(reflectionText: st
   );
   if (fallbackBullets.length === 0) return [];
 
-  return [{
-    priority: "medium",
-    status: "pending",
-    area: "config",
-    summary: "Reflection learning governance candidates",
-    details: fallbackBullets.map((line) => `- ${line}`).join("\n"),
-    suggestedAction: "Review the governance candidates, promote durable rules to AGENTS.md / SOUL.md / TOOLS.md when stable, and extract a skill if the pattern becomes reusable.",
-  }];
+  return [
+    {
+      priority: "medium",
+      status: "pending",
+      area: "config",
+      summary: "Reflection learning governance candidates",
+      details: fallbackBullets.map((line) => `- ${line}`).join("\n"),
+      suggestedAction:
+        "Review the governance candidates, promote durable rules to AGENTS.md / SOUL.md / TOOLS.md when stable, and extract a skill if the pattern becomes reusable.",
+    },
+  ];
 }
 
 function parseReflectionGovernanceEntry(block: string): ReflectionGovernanceEntry | null {
@@ -190,12 +201,16 @@ function parseReflectionGovernanceEntry(block: string): ReflectionGovernanceEntr
 }
 
 export function extractReflectionMappedMemories(reflectionText: string): ReflectionMappedMemory[] {
-  return extractReflectionMappedMemoryItems(reflectionText).map(({ text, category, heading }) => ({ text, category, heading }));
+  return extractReflectionMappedMemoryItems(reflectionText).map(({ text, category, heading }) => ({
+    text,
+    category,
+    heading,
+  }));
 }
 
 function extractReflectionMappedMemoryItemsWithSanitizer(
   reflectionText: string,
-  sanitizeLines: (lines: string[]) => string[],
+  sanitizeLines: (lines: string[]) => string[]
 ): ReflectionMappedMemoryItem[] {
   const mappedSections: Array<{
     heading: string;
@@ -240,12 +255,16 @@ export function extractInjectableReflectionMappedMemoryItems(reflectionText: str
 }
 
 export function extractInjectableReflectionMappedMemories(reflectionText: string): ReflectionMappedMemory[] {
-  return extractInjectableReflectionMappedMemoryItems(reflectionText).map(({ text, category, heading }) => ({ text, category, heading }));
+  return extractInjectableReflectionMappedMemoryItems(reflectionText).map(({ text, category, heading }) => ({
+    text,
+    category,
+    heading,
+  }));
 }
 
 function extractReflectionSlicesWithSanitizer(
   reflectionText: string,
-  sanitizeLines: (lines: string[]) => string[],
+  sanitizeLines: (lines: string[]) => string[]
 ): ReflectionSlices {
   const invariantSection = parseSectionBullets(reflectionText, "Invariants");
   const derivedSection = parseSectionBullets(reflectionText, "Derived");
@@ -263,15 +282,17 @@ function extractReflectionSlicesWithSanitizer(
   const openLoopLines = sanitizeLines(parseSectionBullets(reflectionText, "Open loops / next actions"))
     .filter(isOpenLoopAction)
     .filter(isDerivedDeltaLike);
-  const durableDecisionLines = sanitizeLines(parseSectionBullets(reflectionText, "Decisions (durable)"))
-    .filter(isInvariantRuleLike);
+  const durableDecisionLines = sanitizeLines(parseSectionBullets(reflectionText, "Decisions (durable)")).filter(
+    isInvariantRuleLike
+  );
 
-  const invariants = invariantsPrimary.length > 0
-    ? invariantsPrimary
-    : (invariantLinesLegacy.length > 0 ? invariantLinesLegacy : durableDecisionLines);
-  const derived = derivedPrimary.length > 0
-    ? derivedPrimary
-    : [...reflectionLinesLegacy, ...openLoopLines];
+  const invariants =
+    invariantsPrimary.length > 0
+      ? invariantsPrimary
+      : invariantLinesLegacy.length > 0
+        ? invariantLinesLegacy
+        : durableDecisionLines;
+  const derived = derivedPrimary.length > 0 ? derivedPrimary : [...reflectionLinesLegacy, ...openLoopLines];
 
   return {
     invariants: invariants.slice(0, 8),

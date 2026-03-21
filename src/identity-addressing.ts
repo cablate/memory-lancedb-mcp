@@ -31,12 +31,7 @@ function extractFirst(patterns: RegExp[], text: string): string | undefined {
 }
 
 function combineIdentityTextProbe(params: IdentityAddressingMemoryLike): string {
-  return [
-    params.text,
-    params.abstract,
-    params.overview,
-    params.content,
-  ]
+  return [params.text, params.abstract, params.overview, params.content]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .map((value) => value.trim())
     .join("\n");
@@ -55,12 +50,7 @@ const ADDRESSING_PATTERNS = [
   /(?:addressive identifier is|preferred (?:and permanently assigned )?addressive identifier is)\s*['"]?([^'".,\n]+)['"]?/i,
 ];
 
-const NAME_HINT_PATTERNS = [
-  /^姓名[:：]/m,
-  /^## Identity$/m,
-  /(?:^|\n)-\s*Name:\s+/i,
-  /用户当前姓名\/自称为/u,
-];
+const NAME_HINT_PATTERNS = [/^姓名[:：]/m, /^## Identity$/m, /(?:^|\n)-\s*Name:\s+/i, /用户当前姓名\/自称为/u];
 
 const ADDRESSING_HINT_PATTERNS = [
   /^称呼偏好[:：]/m,
@@ -124,9 +114,7 @@ export function extractIdentityAndAddressingValues(text: string): {
   };
 }
 
-export function classifyIdentityAndAddressingMemory(
-  params: IdentityAddressingMemoryLike,
-): {
+export function classifyIdentityAndAddressingMemory(params: IdentityAddressingMemoryLike): {
   slots: Set<IdentityAddressingSlot>;
   name?: string;
   addressing?: string;
@@ -150,10 +138,7 @@ export function classifyIdentityAndAddressingMemory(
   if (extracted.name || NAME_HINT_PATTERNS.some((pattern) => pattern.test(probe))) {
     slots.add("name");
   }
-  if (
-    extracted.addressing ||
-    ADDRESSING_HINT_PATTERNS.some((pattern) => pattern.test(probe))
-  ) {
+  if (extracted.addressing || ADDRESSING_HINT_PATTERNS.some((pattern) => pattern.test(probe))) {
     slots.add("addressing");
   }
 
@@ -164,12 +149,8 @@ export function classifyIdentityAndAddressingMemory(
   };
 }
 
-export function canonicalizeIdentityAndAddressingCandidate(
-  candidate: CandidateMemory,
-): CandidateMemory {
-  const combined = [candidate.abstract, candidate.overview, candidate.content]
-    .filter(Boolean)
-    .join("\n");
+export function canonicalizeIdentityAndAddressingCandidate(candidate: CandidateMemory): CandidateMemory {
+  const combined = [candidate.abstract, candidate.overview, candidate.content].filter(Boolean).join("\n");
 
   if (candidate.category === "entities") {
     const name = extractFirst(NAME_PATTERNS, combined);

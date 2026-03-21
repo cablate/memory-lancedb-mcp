@@ -59,7 +59,7 @@ interface EnrichedMetadata {
   confidence: number;
   last_accessed_at: number;
   upgraded_from: string; // original 5-category
-  upgraded_at: number;   // timestamp of upgrade
+  upgraded_at: number; // timestamp of upgrade
 }
 
 // ============================================================================
@@ -73,10 +73,7 @@ interface EnrichedMetadata {
  * Without LLM, defaults to `cases` (conservative).
  * With LLM, the enrichment prompt will determine the correct category.
  */
-function reverseMapCategory(
-  oldCategory: MemoryEntry["category"],
-  text: string,
-): MemoryCategory {
+function reverseMapCategory(oldCategory: MemoryEntry["category"], text: string): MemoryCategory {
   switch (oldCategory) {
     case "preference":
       return "preferences";
@@ -88,10 +85,7 @@ function reverseMapCategory(
       return "patterns";
     case "fact":
       // Heuristic: if text looks like personal identity info, map to profile
-      if (
-        /\b(my |i am |i'm |name is |叫我|我的|我是)\b/i.test(text) &&
-        text.length < 200
-      ) {
+      if (/\b(my |i am |i'm |name is |叫我|我的|我是)\b/i.test(text) && text.length < 200) {
         return "profile";
       }
       return "cases";
@@ -136,7 +130,7 @@ Rules:
 
 function simpleEnrich(
   text: string,
-  category: MemoryCategory,
+  category: MemoryCategory
 ): Pick<EnrichedMetadata, "l0_abstract" | "l1_overview" | "l2_content"> {
   // L0: first sentence or first 80 chars
   const firstSentence = text.match(/^[^.!?。！？\n]+[.!?。！？]?/)?.[0] || text;
@@ -163,7 +157,7 @@ export class MemoryUpgrader {
   constructor(
     private store: MemoryStore,
     private llm: LlmClient | null,
-    private options: UpgradeOptions = {},
+    private options: UpgradeOptions = {}
   ) {
     this.log = options.log ?? console.log;
   }
@@ -224,12 +218,7 @@ export class MemoryUpgrader {
 
     // Load all memories
     this.log("memory-upgrader: scanning memories...");
-    const allMemories = await this.store.list(
-      options.scopeFilter ?? this.options.scopeFilter,
-      undefined,
-      10000,
-      0,
-    );
+    const allMemories = await this.store.list(options.scopeFilter ?? this.options.scopeFilter, undefined, 10000, 0);
 
     // Filter legacy memories
     const legacyMemories = allMemories.filter((m) => this.isLegacyMemory(m));
@@ -241,31 +230,25 @@ export class MemoryUpgrader {
       return result;
     }
 
-    this.log(
-      `memory-upgrader: found ${legacyMemories.length} legacy memories out of ${allMemories.length} total`,
-    );
+    this.log(`memory-upgrader: found ${legacyMemories.length} legacy memories out of ${allMemories.length} total`);
 
     if (dryRun) {
       const byCategory: Record<string, number> = {};
       for (const m of legacyMemories) {
         byCategory[m.category] = (byCategory[m.category] || 0) + 1;
       }
-      this.log(
-        `memory-upgrader: [DRY-RUN] would upgrade ${legacyMemories.length} memories`,
-      );
+      this.log(`memory-upgrader: [DRY-RUN] would upgrade ${legacyMemories.length} memories`);
       this.log(`memory-upgrader: [DRY-RUN] breakdown: ${JSON.stringify(byCategory)}`);
       return result;
     }
 
     // Process in batches
-    const toProcess = limit
-      ? legacyMemories.slice(0, limit)
-      : legacyMemories;
+    const toProcess = limit ? legacyMemories.slice(0, limit) : legacyMemories;
 
     for (let i = 0; i < toProcess.length; i += batchSize) {
       const batch = toProcess.slice(i, i + batchSize);
       this.log(
-        `memory-upgrader: processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(toProcess.length / batchSize)} (${batch.length} memories)`,
+        `memory-upgrader: processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(toProcess.length / batchSize)} (${batch.length} memories)`
       );
 
       for (const entry of batch) {
@@ -280,13 +263,11 @@ export class MemoryUpgrader {
       }
 
       // Progress report
-      this.log(
-        `memory-upgrader: progress — ${result.upgraded} upgraded, ${result.errors.length} errors`,
-      );
+      this.log(`memory-upgrader: progress — ${result.upgraded} upgraded, ${result.errors.length} errors`);
     }
 
     this.log(
-      `memory-upgrader: upgrade complete — ${result.upgraded} upgraded, ${result.skipped} already new, ${result.errors.length} errors`,
+      `memory-upgrader: upgrade complete — ${result.upgraded} upgraded, ${result.skipped} already new, ${result.errors.length} errors`
     );
     return result;
   }
@@ -294,10 +275,7 @@ export class MemoryUpgrader {
   /**
    * Upgrade a single legacy memory entry.
    */
-  private async upgradeEntry(
-    entry: MemoryEntry,
-    noLlm: boolean,
-  ): Promise<void> {
+  private async upgradeEntry(entry: MemoryEntry, noLlm: boolean): Promise<void> {
     // Step 1: Reverse-map category
     let newCategory = reverseMapCategory(entry.category, entry.text);
 
@@ -327,17 +305,13 @@ export class MemoryUpgrader {
 
         // LLM may have resolved the ambiguous fact→profile/cases
         if (llmResult.resolved_category) {
-          const validCategories = new Set([
-            "profile", "preferences", "entities", "events", "cases", "patterns",
-          ]);
+          const validCategories = new Set(["profile", "preferences", "entities", "events", "cases", "patterns"]);
           if (validCategories.has(llmResult.resolved_category)) {
             newCategory = llmResult.resolved_category as MemoryCategory;
           }
         }
       } catch (err) {
-        this.log(
-          `memory-upgrader: LLM enrichment failed for ${entry.id}, falling back to simple — ${String(err)}`,
-        );
+        this.log(`memory-upgrader: LLM enrichment failed for ${entry.id}, falling back to simple — ${String(err)}`);
         enriched = simpleEnrich(entry.text, newCategory);
       }
     } else {
@@ -345,9 +319,15 @@ export class MemoryUpgrader {
     }
 
     // Step 3: Build enriched metadata
-    const existingMeta = entry.metadata ? (() => {
-      try { return JSON.parse(entry.metadata!); } catch { return {}; }
-    })() : {};
+    const existingMeta = entry.metadata
+      ? (() => {
+          try {
+            return JSON.parse(entry.metadata!);
+          } catch {
+            return {};
+          }
+        })()
+      : {};
 
     const newMetadata: EnrichedMetadata = {
       ...buildSmartMetadata(
@@ -360,7 +340,7 @@ export class MemoryUpgrader {
           tier: "working" as MemoryTier,
           access_count: 0,
           confidence: 0.7,
-        },
+        }
       ),
       upgraded_from: entry.category,
       upgraded_at: Date.now(),
@@ -382,7 +362,7 @@ export class MemoryUpgrader {
 export function createMemoryUpgrader(
   store: MemoryStore,
   llm: LlmClient | null,
-  options: UpgradeOptions = {},
+  options: UpgradeOptions = {}
 ): MemoryUpgrader {
   return new MemoryUpgrader(store, llm, options);
 }

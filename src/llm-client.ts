@@ -93,21 +93,15 @@ function repairCommonJson(text: string): string {
         continue;
       }
 
-      if (ch === "\"") {
+      if (ch === '"') {
         const nextCh = nextNonWhitespaceChar(text, i + 1);
         // A string may legally end before object/array delimiters or a key colon.
-        if (
-          nextCh === undefined ||
-          nextCh === "," ||
-          nextCh === "}" ||
-          nextCh === "]" ||
-          nextCh === ":"
-        ) {
+        if (nextCh === undefined || nextCh === "," || nextCh === "}" || nextCh === "]" || nextCh === ":") {
           result += ch;
           inString = false;
         } else {
           // Treat stray quotes inside a string as literal content.
-          result += "\\\"";
+          result += '\\"';
         }
         continue;
       }
@@ -129,7 +123,7 @@ function repairCommonJson(text: string): string {
       continue;
     }
 
-    if (ch === "\"") {
+    if (ch === '"') {
       result += ch;
       inString = true;
       continue;
@@ -166,8 +160,7 @@ export function createLlmClient(config: LlmClientConfig): LlmClient {
           messages: [
             {
               role: "system",
-              content:
-                "You are a memory extraction assistant. Always respond with valid JSON only.",
+              content: "You are a memory extraction assistant. Always respond with valid JSON only.",
             },
             { role: "user", content: prompt },
           ],
@@ -176,22 +169,19 @@ export function createLlmClient(config: LlmClientConfig): LlmClient {
 
         const raw = response.choices?.[0]?.message?.content;
         if (!raw) {
-          lastError =
-            `memory-lancedb-pro: llm-client [${label}] empty response content from model ${config.model}`;
+          lastError = `memory-lancedb-pro: llm-client [${label}] empty response content from model ${config.model}`;
           log(lastError);
           return null;
         }
         if (typeof raw !== "string") {
-          lastError =
-            `memory-lancedb-pro: llm-client [${label}] non-string response content type=${Array.isArray(raw) ? "array" : typeof raw} from model ${config.model}`;
+          lastError = `memory-lancedb-pro: llm-client [${label}] non-string response content type=${Array.isArray(raw) ? "array" : typeof raw} from model ${config.model}`;
           log(lastError);
           return null;
         }
 
         const jsonStr = extractJsonFromResponse(raw);
         if (!jsonStr) {
-          lastError =
-            `memory-lancedb-pro: llm-client [${label}] no JSON object found (chars=${raw.length}, preview=${JSON.stringify(previewText(raw))})`;
+          lastError = `memory-lancedb-pro: llm-client [${label}] no JSON object found (chars=${raw.length}, preview=${JSON.stringify(previewText(raw))})`;
           log(lastError);
           return null;
         }
@@ -204,25 +194,22 @@ export function createLlmClient(config: LlmClientConfig): LlmClient {
             try {
               const repaired = JSON.parse(repairedJsonStr) as T;
               log(
-                `memory-lancedb-pro: llm-client [${label}] recovered malformed JSON via heuristic repair (jsonChars=${jsonStr.length})`,
+                `memory-lancedb-pro: llm-client [${label}] recovered malformed JSON via heuristic repair (jsonChars=${jsonStr.length})`
               );
               return repaired;
             } catch (repairErr) {
-              lastError =
-                `memory-lancedb-pro: llm-client [${label}] JSON.parse failed: ${err instanceof Error ? err.message : String(err)}; repair failed: ${repairErr instanceof Error ? repairErr.message : String(repairErr)} (jsonChars=${jsonStr.length}, jsonPreview=${JSON.stringify(previewText(jsonStr))})`;
+              lastError = `memory-lancedb-pro: llm-client [${label}] JSON.parse failed: ${err instanceof Error ? err.message : String(err)}; repair failed: ${repairErr instanceof Error ? repairErr.message : String(repairErr)} (jsonChars=${jsonStr.length}, jsonPreview=${JSON.stringify(previewText(jsonStr))})`;
               log(lastError);
               return null;
             }
           }
-          lastError =
-            `memory-lancedb-pro: llm-client [${label}] JSON.parse failed: ${err instanceof Error ? err.message : String(err)} (jsonChars=${jsonStr.length}, jsonPreview=${JSON.stringify(previewText(jsonStr))})`;
+          lastError = `memory-lancedb-pro: llm-client [${label}] JSON.parse failed: ${err instanceof Error ? err.message : String(err)} (jsonChars=${jsonStr.length}, jsonPreview=${JSON.stringify(previewText(jsonStr))})`;
           log(lastError);
           return null;
         }
       } catch (err) {
         // Graceful degradation — return null so caller can fall back
-        lastError =
-          `memory-lancedb-pro: llm-client [${label}] request failed for model ${config.model}: ${err instanceof Error ? err.message : String(err)}`;
+        lastError = `memory-lancedb-pro: llm-client [${label}] request failed for model ${config.model}: ${err instanceof Error ? err.message : String(err)}`;
         log(lastError);
         return null;
       }

@@ -25,8 +25,5 @@ export function computeReflectionScore(input: ReflectionScoreInput): number {
 }
 
 export function normalizeReflectionLineForAggregation(line: string): string {
-  return String(line)
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
+  return String(line).trim().replace(/\s+/g, " ").toLowerCase();
 }

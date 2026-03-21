@@ -34,7 +34,10 @@ class EmbeddingCache {
   }
 
   private key(text: string, task?: string): string {
-    const hash = createHash("sha256").update(`${task || ""}:${text}`).digest("hex").slice(0, 24);
+    const hash = createHash("sha256")
+      .update(`${task || ""}:${text}`)
+      .digest("hex")
+      .slice(0, 24);
     return hash;
   }
 
@@ -67,7 +70,9 @@ class EmbeddingCache {
     this.cache.set(k, { vector, createdAt: Date.now() });
   }
 
-  get size(): number { return this.cache.size; }
+  get size(): number {
+    return this.cache.size;
+  }
   get stats(): { size: number; hits: number; misses: number; hitRate: string } {
     const total = this.hits + this.misses;
     return {
@@ -186,7 +191,9 @@ function isAuthError(error: unknown): boolean {
   if (code && /invalid.*key|auth|forbidden|unauthorized/i.test(code)) return true;
 
   const msg = getErrorMessage(error);
-  return /\b401\b|\b403\b|invalid api key|api key expired|expired api key|forbidden|unauthorized|authentication failed|access denied/i.test(msg);
+  return /\b401\b|\b403\b|invalid api key|api key expired|expired api key|forbidden|unauthorized|authentication failed|access denied/i.test(
+    msg
+  );
 }
 
 function isNetworkError(error: unknown): boolean {
@@ -196,12 +203,14 @@ function isNetworkError(error: unknown): boolean {
   }
 
   const msg = getErrorMessage(error);
-  return /ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|fetch failed|network error|socket hang up|connection refused|getaddrinfo/i.test(msg);
+  return /ECONNREFUSED|ECONNRESET|ENOTFOUND|EHOSTUNREACH|ETIMEDOUT|fetch failed|network error|socket hang up|connection refused|getaddrinfo/i.test(
+    msg
+  );
 }
 
 export function formatEmbeddingProviderError(
   error: unknown,
-  opts: { baseURL?: string; model: string; mode?: "single" | "batch" },
+  opts: { baseURL?: string; model: string; mode?: "single" | "batch" }
 ): string {
   const raw = getErrorMessage(error).trim();
   if (
@@ -241,7 +250,7 @@ export function formatEmbeddingProviderError(
     if (opts.baseURL) {
       hint += ` at ${opts.baseURL}`;
     }
-    hint += ` and that model \"${opts.model}\" is available.`;
+    hint += ` and that model "${opts.model}" is available.`;
     return `Embedding provider unreachable (${detailText}). ${hint}`;
   }
 
@@ -290,7 +299,7 @@ export class Embedder {
   constructor(config: EmbeddingConfig & { chunking?: boolean }) {
     // Normalize apiKey to array and resolve environment variables
     const apiKeys = Array.isArray(config.apiKey) ? config.apiKey : [config.apiKey];
-    const resolvedKeys = apiKeys.map(k => resolveEnvVars(k));
+    const resolvedKeys = apiKeys.map((k) => resolveEnvVars(k));
 
     this._model = config.model;
     this._baseURL = config.baseURL;
@@ -302,10 +311,13 @@ export class Embedder {
     this._autoChunk = config.chunking !== false;
 
     // Create a client pool — one OpenAI client per key
-    this.clients = resolvedKeys.map(key => new OpenAI({
-      apiKey: key,
-      ...(config.baseURL ? { baseURL: config.baseURL } : {}),
-    }));
+    this.clients = resolvedKeys.map(
+      (key) =>
+        new OpenAI({
+          apiKey: key,
+          ...(config.baseURL ? { baseURL: config.baseURL } : {}),
+        })
+    );
 
     if (this.clients.length > 1) {
       console.log(`[memory-lancedb-pro] Initialized ${this.clients.length} API keys for round-robin rotation`);
@@ -439,9 +451,7 @@ export class Embedder {
       throw new Error(`Embedding is not an array (got ${typeof embedding})`);
     }
     if (embedding.length !== this.dimensions) {
-      throw new Error(
-        `Embedding dimension mismatch: expected ${this.dimensions}, got ${embedding.length}`
-      );
+      throw new Error(`Embedding dimension mismatch: expected ${this.dimensions}, got ${embedding.length}`);
     }
   }
 
@@ -494,7 +504,7 @@ export class Embedder {
         try {
           console.log(`Document exceeded context limit (${errorMsg}), attempting chunking...`);
           const chunkResult = smartChunk(text, this._model);
-          
+
           if (chunkResult.chunks.length === 0) {
             throw new Error(`Failed to chunk document: ${errorMsg}`);
           }
@@ -514,22 +524,19 @@ export class Embedder {
           );
 
           // Compute average embedding across chunks
-          const avgEmbedding = chunkEmbeddings.reduce(
-            (sum, { embedding }) => {
-              for (let i = 0; i < embedding.length; i++) {
-                sum[i] += embedding[i];
-              }
-              return sum;
-            },
-            new Array(this.dimensions).fill(0)
-          );
+          const avgEmbedding = chunkEmbeddings.reduce((sum, { embedding }) => {
+            for (let i = 0; i < embedding.length; i++) {
+              sum[i] += embedding[i];
+            }
+            return sum;
+          }, new Array(this.dimensions).fill(0));
 
-          const finalEmbedding = avgEmbedding.map(v => v / chunkEmbeddings.length);
-          
+          const finalEmbedding = avgEmbedding.map((v) => v / chunkEmbeddings.length);
+
           // Cache the result for the original text (using its hash)
           this._cache.set(text, task, finalEmbedding);
           console.log(`Successfully embedded long document as ${chunkEmbeddings.length} averaged chunks`);
-          
+
           return finalEmbedding;
         } catch (chunkError) {
           // If chunking fails, throw the original error
@@ -573,9 +580,7 @@ export class Embedder {
     }
 
     try {
-      const response = await this.embedWithRetry(
-        this.buildPayload(validTexts, task)
-      );
+      const response = await this.embedWithRetry(this.buildPayload(validTexts, task));
 
       // Create result array with proper length
       const results: number[][] = new Array(texts.length);
@@ -605,7 +610,7 @@ export class Embedder {
       if (isContextError && this._autoChunk) {
         try {
           console.log(`Batch embedding failed with context error, attempting chunking...`);
-          
+
           const chunkResults = await Promise.all(
             validTexts.map(async (text, idx) => {
               const chunkResult = smartChunk(text, this._model);
@@ -614,19 +619,14 @@ export class Embedder {
               }
 
               // Embed all chunks in parallel, then average.
-              const embeddings = await Promise.all(
-                chunkResult.chunks.map((chunk) => this.embedSingle(chunk, task))
-              );
+              const embeddings = await Promise.all(chunkResult.chunks.map((chunk) => this.embedSingle(chunk, task)));
 
-              const avgEmbedding = embeddings.reduce(
-                (sum, emb) => {
-                  for (let i = 0; i < emb.length; i++) {
-                    sum[i] += emb[i];
-                  }
-                  return sum;
-                },
-                new Array(this.dimensions).fill(0)
-              );
+              const avgEmbedding = embeddings.reduce((sum, emb) => {
+                for (let i = 0; i < emb.length; i++) {
+                  sum[i] += emb[i];
+                }
+                return sum;
+              }, new Array(this.dimensions).fill(0));
 
               const finalEmbedding = avgEmbedding.map((v) => v / embeddings.length);
 

@@ -47,10 +47,7 @@ const ACCESS_DECAY_HALF_LIFE_DAYS = 30;
 
 function clampAccessCount(value: number): number {
   if (!Number.isFinite(value)) return MIN_ACCESS_COUNT;
-  return Math.min(
-    MAX_ACCESS_COUNT,
-    Math.max(MIN_ACCESS_COUNT, Math.floor(value)),
-  );
+  return Math.min(MAX_ACCESS_COUNT, Math.max(MIN_ACCESS_COUNT, Math.floor(value)));
 }
 
 // ============================================================================
@@ -63,9 +60,7 @@ function clampAccessCount(value: number): number {
  * Handles: undefined, empty string, malformed JSON, negative numbers,
  * numbers exceeding 10000. Always returns a valid AccessMetadata.
  */
-export function parseAccessMetadata(
-  metadata: string | undefined,
-): AccessMetadata {
+export function parseAccessMetadata(metadata: string | undefined): AccessMetadata {
   if (metadata === undefined || metadata === "") {
     return { accessCount: 0, lastAccessedAt: 0 };
   }
@@ -85,19 +80,14 @@ export function parseAccessMetadata(
 
   // Support both camelCase and snake_case keys (beta smart-memory uses snake_case).
   const rawCountAny = obj.accessCount ?? obj.access_count;
-  const rawCount =
-    typeof rawCountAny === "number" ? rawCountAny : Number(rawCountAny ?? 0);
+  const rawCount = typeof rawCountAny === "number" ? rawCountAny : Number(rawCountAny ?? 0);
 
   const rawLastAny = obj.lastAccessedAt ?? obj.last_accessed_at;
-  const rawLastAccessed =
-    typeof rawLastAny === "number" ? rawLastAny : Number(rawLastAny ?? 0);
+  const rawLastAccessed = typeof rawLastAny === "number" ? rawLastAny : Number(rawLastAny ?? 0);
 
   return {
     accessCount: clampAccessCount(rawCount),
-    lastAccessedAt:
-      Number.isFinite(rawLastAccessed) && rawLastAccessed >= 0
-        ? rawLastAccessed
-        : 0,
+    lastAccessedAt: Number.isFinite(rawLastAccessed) && rawLastAccessed >= 0 ? rawLastAccessed : 0,
   };
 }
 
@@ -111,10 +101,7 @@ export function parseAccessMetadata(
  * Preserves ALL existing fields in the metadata object — only overwrites
  * `accessCount` and `lastAccessedAt`. Returns a new JSON string.
  */
-export function buildUpdatedMetadata(
-  existingMetadata: string | undefined,
-  accessDelta: number,
-): string {
+export function buildUpdatedMetadata(existingMetadata: string | undefined, accessDelta: number): string {
   let existing: Record<string, unknown> = {};
 
   if (existingMetadata !== undefined && existingMetadata !== "") {
@@ -166,7 +153,7 @@ export function computeEffectiveHalfLife(
   accessCount: number,
   lastAccessedAt: number,
   reinforcementFactor: number,
-  maxMultiplier: number,
+  maxMultiplier: number
 ): number {
   // Short-circuit: no reinforcement or no accesses
   if (reinforcementFactor === 0 || accessCount <= 0) {
@@ -174,22 +161,16 @@ export function computeEffectiveHalfLife(
   }
 
   const now = Date.now();
-  const daysSinceLastAccess = Math.max(
-    0,
-    (now - lastAccessedAt) / (1000 * 60 * 60 * 24),
-  );
+  const daysSinceLastAccess = Math.max(0, (now - lastAccessedAt) / (1000 * 60 * 60 * 24));
 
   // Access freshness decays exponentially with 30-day half-life
-  const accessFreshness = Math.exp(
-    -daysSinceLastAccess * (Math.LN2 / ACCESS_DECAY_HALF_LIFE_DAYS),
-  );
+  const accessFreshness = Math.exp(-daysSinceLastAccess * (Math.LN2 / ACCESS_DECAY_HALF_LIFE_DAYS));
 
   // Effective access count after freshness decay
   const effectiveAccessCount = accessCount * accessFreshness;
 
   // Logarithmic extension for diminishing returns
-  const extension =
-    baseHalfLife * reinforcementFactor * Math.log1p(effectiveAccessCount);
+  const extension = baseHalfLife * reinforcementFactor * Math.log1p(effectiveAccessCount);
 
   const result = baseHalfLife + extension;
 
@@ -290,9 +271,7 @@ export class AccessTracker {
   destroy(): void {
     this.clearTimer();
     if (this.pending.size > 0) {
-      this.logger.warn(
-        `access-tracker: destroying with ${this.pending.size} pending writes`,
-      );
+      this.logger.warn(`access-tracker: destroying with ${this.pending.size} pending writes`);
     }
     this.pending.clear();
   }
@@ -316,10 +295,7 @@ export class AccessTracker {
         // Requeue failed delta for retry on next flush
         const existing = this.pending.get(id) ?? 0;
         this.pending.set(id, existing + delta);
-        this.logger.warn(
-          `access-tracker: write-back failed for ${id.slice(0, 8)}:`,
-          err,
-        );
+        this.logger.warn(`access-tracker: write-back failed for ${id.slice(0, 8)}:`, err);
       }
     }
   }

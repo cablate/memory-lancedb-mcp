@@ -43,11 +43,22 @@
   },
   "scripts": {
     "start": "npx tsx server.ts",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.ts\" \"*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"*.ts\"",
+    "typecheck": "tsc --noEmit",
     "test": "node test/embedder-error-hints.test.mjs && node test/migrate-legacy-schema.test.mjs && node test/update-consistency-lancedb.test.mjs && node test/functional-e2e.mjs && node test/retriever-rerank-regression.mjs && node test/smart-memory-lifecycle.mjs && node test/smart-extractor-branches.mjs && node test/smart-metadata-v2.mjs && node test/vector-search-cosine.test.mjs && node test/context-support-e2e.mjs && node test/temporal-facts.test.mjs && node test/memory-update-supersede.test.mjs && node test/memory-upgrader-diagnostics.test.mjs && node --test test/workflow-fork-guards.test.mjs"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@typescript-eslint/eslint-plugin": "^8.24.0",
+    "@typescript-eslint/parser": "^8.24.0",
     "commander": "^14.0.0",
-    "typescript": "^5.9.3"
+    "eslint": "^9.20.1",
+    "eslint-config-prettier": "^10.0.1",
+    "prettier": "^3.5.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.0"
   },
   "peerDependencies": {
     "tsx": "^4.19.0"

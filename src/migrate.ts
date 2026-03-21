@@ -43,11 +43,7 @@ function normalizeLegacyVector(value: unknown): number[] {
     return value.map((n) => Number(n));
   }
 
-  if (
-    value &&
-    typeof value === "object" &&
-    Symbol.iterator in (value as Record<PropertyKey, unknown>)
-  ) {
+  if (value && typeof value === "object" && Symbol.iterator in (value as Record<PropertyKey, unknown>)) {
     return Array.from(value as Iterable<unknown>, (n) => Number(n));
   }
 
@@ -116,9 +112,9 @@ export class MemoryMigrator {
       }
 
       result.success = result.errors.length === 0;
-      result.summary = `Migration ${result.success ? 'completed' : 'completed with errors'}: ` +
+      result.summary =
+        `Migration ${result.success ? "completed" : "completed with errors"}: ` +
         `${result.migratedCount} migrated, ${result.skippedCount} skipped`;
-
     } catch (error) {
       result.errors.push(`Migration failed: ${error instanceof Error ? error.message : String(error)}`);
       result.summary = "Migration failed due to unexpected error";
@@ -143,7 +139,7 @@ export class MemoryMigrator {
         await fs.access(path);
         const files = await fs.readdir(path);
         // Check for LanceDB files
-        if (files.some(f => f.endsWith('.lance') || f === 'memories.lance')) {
+        if (files.some((f) => f.endsWith(".lance") || f === "memories.lance")) {
           return path;
         }
       } catch {
@@ -164,15 +160,17 @@ export class MemoryMigrator {
       if (limit) query = query.limit(limit);
       const entries = await query.toArray();
 
-      return entries.map((row): LegacyMemoryEntry => ({
-        id: row.id as string,
-        text: row.text as string,
-        vector: normalizeLegacyVector(row.vector),
-        importance: Number(row.importance),
-        category: (row.category as LegacyMemoryEntry["category"]) || "other",
-        createdAt: Number(row.createdAt),
-        scope: row.scope as string | undefined,
-      }));
+      return entries.map(
+        (row): LegacyMemoryEntry => ({
+          id: row.id as string,
+          text: row.text as string,
+          vector: normalizeLegacyVector(row.vector),
+          importance: Number(row.importance),
+          category: (row.category as LegacyMemoryEntry["category"]) || "other",
+          createdAt: Number(row.createdAt),
+          scope: row.scope as string | undefined,
+        })
+      );
     } catch (error) {
       console.warn(`Failed to load legacy data: ${error}`);
       return [];
@@ -198,9 +196,7 @@ export class MemoryMigrator {
             continue;
           }
 
-          const existing = await this.targetStore.vectorSearch(
-            legacy.vector, 1, 0.9, [legacy.scope || defaultScope]
-          );
+          const existing = await this.targetStore.vectorSearch(legacy.vector, 1, 0.9, [legacy.scope || defaultScope]);
           if (existing.length > 0 && existing[0].score > 0.95) {
             skipped++;
             continue;
@@ -229,7 +225,6 @@ export class MemoryMigrator {
         if (migrated % 100 === 0) {
           console.log(`Migrated ${migrated}/${legacyEntries.length} entries...`);
         }
-
       } catch (error) {
         errors.push(`Failed to migrate entry ${legacy.id}: ${error}`);
         skipped++;
@@ -306,7 +301,6 @@ export class MemoryMigrator {
         targetCount,
         issues,
       };
-
     } catch (error) {
       return {
         valid: false,

@@ -1,6 +1,4 @@
-import {
-  classifyIdentityAndAddressingMemory,
-} from "./identity-addressing.js";
+import { classifyIdentityAndAddressingMemory } from "./identity-addressing.js";
 import { parseSmartMetadata } from "./smart-metadata.js";
 
 export interface UserMdExclusiveConfig {
@@ -42,7 +40,7 @@ const PROFILE_HINT_PATTERNS = [
 ];
 
 export function resolveUserMdExclusiveConfig(
-  workspaceBoundary?: WorkspaceBoundaryConfig | null,
+  workspaceBoundary?: WorkspaceBoundaryConfig | null
 ): ResolvedUserMdExclusiveConfig {
   const raw = workspaceBoundary?.userMdExclusive;
   const enabled = raw?.enabled === true;
@@ -55,9 +53,7 @@ export function resolveUserMdExclusiveConfig(
   };
 }
 
-export function shouldFilterUserMdExclusiveRecall(
-  workspaceBoundary?: WorkspaceBoundaryConfig | null,
-): boolean {
+export function shouldFilterUserMdExclusiveRecall(workspaceBoundary?: WorkspaceBoundaryConfig | null): boolean {
   return resolveUserMdExclusiveConfig(workspaceBoundary).filterRecall;
 }
 
@@ -70,7 +66,7 @@ export function isUserMdExclusiveMemory(
     overview?: string;
     content?: string;
   },
-  workspaceBoundary?: WorkspaceBoundaryConfig | null,
+  workspaceBoundary?: WorkspaceBoundaryConfig | null
 ): boolean {
   const config = resolveUserMdExclusiveConfig(workspaceBoundary);
   if (!config.enabled) return false;
@@ -95,12 +91,7 @@ export function isUserMdExclusiveMemory(
     slots.add("addressing");
   }
 
-  const probe = [
-    params.text,
-    params.abstract,
-    params.overview,
-    params.content,
-  ]
+  const probe = [params.text, params.abstract, params.overview, params.content]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .map((value) => value.trim())
     .join("\n");
@@ -126,7 +117,7 @@ export function isUserMdExclusiveMemory(
 
 export function isUserMdExclusiveEntry(
   entry: BoundaryEntryLike,
-  workspaceBoundary?: WorkspaceBoundaryConfig | null,
+  workspaceBoundary?: WorkspaceBoundaryConfig | null
 ): boolean {
   const meta = parseSmartMetadata(entry.metadata, entry);
   return isUserMdExclusiveMemory(
@@ -138,13 +129,13 @@ export function isUserMdExclusiveEntry(
       overview: meta.l1_overview,
       content: meta.l2_content,
     },
-    workspaceBoundary,
+    workspaceBoundary
   );
 }
 
 export function filterUserMdExclusiveRecallResults<T extends { entry: BoundaryEntryLike }>(
   results: T[],
-  workspaceBoundary?: WorkspaceBoundaryConfig | null,
+  workspaceBoundary?: WorkspaceBoundaryConfig | null
 ): T[] {
   if (!shouldFilterUserMdExclusiveRecall(workspaceBoundary)) {
     return results;

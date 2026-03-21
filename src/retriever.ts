@@ -5,20 +5,11 @@
 
 import type { MemoryEntry, MemoryStore, MemorySearchResult } from "./store.js";
 import type { Embedder } from "./embedder.js";
-import {
-  AccessTracker,
-  computeEffectiveHalfLife,
-  parseAccessMetadata,
-} from "./access-tracker.js";
+import { AccessTracker, computeEffectiveHalfLife, parseAccessMetadata } from "./access-tracker.js";
 import { filterNoise } from "./noise-filter.js";
 import type { DecayEngine, DecayableMemory } from "./decay-engine.js";
 import type { TierManager } from "./tier-manager.js";
-import {
-  getDecayableFromEntry,
-  isMemoryActiveAt,
-  parseSmartMetadata,
-  toLifecycleMemory,
-} from "./smart-metadata.js";
+import { getDecayableFromEntry, isMemoryActiveAt, parseSmartMetadata, toLifecycleMemory } from "./smart-metadata.js";
 
 // ============================================================================
 // Types & Configuration
@@ -49,13 +40,7 @@ export interface RetrievalConfig {
    *  - "voyage": Authorization: Bearer, string[] documents, data[].relevance_score
    *  - "pinecone": Api-Key header, {text}[] documents, data[].score
    *  - "tei": Authorization: Bearer, string[] texts, top-level [{ index, score }] */
-  rerankProvider?:
-    | "jina"
-    | "siliconflow"
-    | "voyage"
-    | "pinecone"
-    | "dashscope"
-    | "tei";
+  rerankProvider?: "jina" | "siliconflow" | "voyage" | "pinecone" | "dashscope" | "tei";
   /**
    * Length normalization: penalize long entries that dominate via sheer keyword
    * density. Formula: score *= 1 / (1 + log2(charLen / anchor)).
@@ -151,13 +136,7 @@ function clamp01WithFloor(value: number, floor: number): number {
 // Rerank Provider Adapters
 // ============================================================================
 
-type RerankProvider =
-  | "jina"
-  | "siliconflow"
-  | "voyage"
-  | "pinecone"
-  | "dashscope"
-  | "tei";
+type RerankProvider = "jina" | "siliconflow" | "voyage" | "pinecone" | "dashscope" | "tei";
 
 interface RerankItem {
   index: number;
@@ -171,7 +150,7 @@ function buildRerankRequest(
   model: string,
   query: string,
   candidates: string[],
-  topN: number,
+  topN: number
 ): { headers: Record<string, string>; body: Record<string, unknown> } {
   switch (provider) {
     case "tei":
@@ -249,19 +228,12 @@ function buildRerankRequest(
 }
 
 /** Parse provider-specific response into unified format */
-function parseRerankResponse(
-  provider: RerankProvider,
-  data: unknown,
-): RerankItem[] | null {
-  const parseItems = (
-    items: unknown,
-    scoreKeys: Array<"score" | "relevance_score">,
-  ): RerankItem[] | null => {
+function parseRerankResponse(provider: RerankProvider, data: unknown): RerankItem[] | null {
+  const parseItems = (items: unknown, scoreKeys: Array<"score" | "relevance_score">): RerankItem[] | null => {
     if (!Array.isArray(items)) return null;
     const parsed: RerankItem[] = [];
     for (const raw of items as Array<Record<string, unknown>>) {
-      const index =
-        typeof raw?.index === "number" ? raw.index : Number(raw?.index);
+      const index = typeof raw?.index === "number" ? raw.index : Number(raw?.index);
       if (!Number.isFinite(index)) continue;
       let score: number | null = null;
       for (const key of scoreKeys) {
@@ -278,9 +250,7 @@ function parseRerankResponse(
     return parsed.length > 0 ? parsed : null;
   };
   const objectData =
-    data && typeof data === "object" && !Array.isArray(data)
-      ? (data as Record<string, unknown>)
-      : undefined;
+    data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, unknown>) : undefined;
 
   switch (provider) {
     case "tei":
@@ -359,17 +329,15 @@ export class MemoryRetriever {
     private store: MemoryStore,
     private embedder: Embedder,
     private config: RetrievalConfig = DEFAULT_RETRIEVAL_CONFIG,
-    private decayEngine: DecayEngine | null = null,
-  ) { }
+    private decayEngine: DecayEngine | null = null
+  ) {}
 
   setAccessTracker(tracker: AccessTracker): void {
     this.accessTracker = tracker;
   }
 
   private filterActiveResults<T extends MemorySearchResult>(results: T[]): T[] {
-    return results.filter((result) =>
-      isMemoryActiveAt(parseSmartMetadata(result.entry.metadata, result.entry)),
-    );
+    return results.filter((result) => isMemoryActiveAt(parseSmartMetadata(result.entry.metadata, result.entry)));
   }
 
   async retrieve(context: RetrievalContext): Promise<RetrievalResult[]> {
@@ -378,19 +346,9 @@ export class MemoryRetriever {
 
     let results: RetrievalResult[];
     if (this.config.mode === "vector" || !this.store.hasFtsSupport) {
-      results = await this.vectorOnlyRetrieval(
-        query,
-        safeLimit,
-        scopeFilter,
-        category,
-      );
+      results = await this.vectorOnlyRetrieval(query, safeLimit, scopeFilter, category);
     } else {
-      results = await this.hybridRetrieval(
-        query,
-        safeLimit,
-        scopeFilter,
-        category,
-      );
+      results = await this.hybridRetrieval(query, safeLimit, scopeFilter, category);
     }
 
     // Record access for reinforcement (manual recall only)
@@ -405,21 +363,15 @@ export class MemoryRetriever {
     query: string,
     limit: number,
     scopeFilter?: string[],
-    category?: string,
+    category?: string
   ): Promise<RetrievalResult[]> {
     const queryVector = await this.embedder.embedQuery(query);
-    const results = await this.store.vectorSearch(
-      queryVector,
-      limit,
-      this.config.minScore,
-      scopeFilter,
-      { excludeInactive: true },
-    );
+    const results = await this.store.vectorSearch(queryVector, limit, this.config.minScore, scopeFilter, {
+      excludeInactive: true,
+    });
 
     // Filter by category if specified
-    const filtered = category
-      ? results.filter((r) => r.entry.category === category)
-      : results;
+    const filtered = category ? results.filter((r) => r.entry.category === category) : results;
 
     const mapped = filtered.map(
       (result, index) =>
@@ -428,18 +380,14 @@ export class MemoryRetriever {
           sources: {
             vector: { score: result.score, rank: index + 1 },
           },
-        }) as RetrievalResult,
+        }) as RetrievalResult
     );
 
     const weighted = this.decayEngine ? mapped : this.applyImportanceWeight(this.applyRecencyBoost(mapped));
     const lengthNormalized = this.applyLengthNormalization(weighted);
-    const hardFiltered = lengthNormalized.filter(r => r.score >= this.config.hardMinScore);
-    const lifecycleRanked = this.decayEngine
-      ? this.applyDecayBoost(hardFiltered)
-      : this.applyTimeDecay(hardFiltered);
-    const denoised = this.config.filterNoise
-      ? filterNoise(lifecycleRanked, r => r.entry.text)
-      : lifecycleRanked;
+    const hardFiltered = lengthNormalized.filter((r) => r.score >= this.config.hardMinScore);
+    const lifecycleRanked = this.decayEngine ? this.applyDecayBoost(hardFiltered) : this.applyTimeDecay(hardFiltered);
+    const denoised = this.config.filterNoise ? filterNoise(lifecycleRanked, (r) => r.entry.text) : lifecycleRanked;
 
     // MMR deduplication: avoid top-k filled with near-identical memories
     const deduplicated = this.applyMMRDiversity(denoised);
@@ -451,24 +399,16 @@ export class MemoryRetriever {
     query: string,
     limit: number,
     scopeFilter?: string[],
-    category?: string,
+    category?: string
   ): Promise<RetrievalResult[]> {
-    const candidatePoolSize = Math.max(
-      this.config.candidatePoolSize,
-      limit * 2,
-    );
+    const candidatePoolSize = Math.max(this.config.candidatePoolSize, limit * 2);
 
     // Compute query embedding once, reuse for vector search + reranking
     const queryVector = await this.embedder.embedQuery(query);
 
     // Run vector and BM25 searches in parallel
     const [vectorResults, bm25Results] = await Promise.all([
-      this.runVectorSearch(
-        queryVector,
-        candidatePoolSize,
-        scopeFilter,
-        category,
-      ),
+      this.runVectorSearch(queryVector, candidatePoolSize, scopeFilter, category),
       this.runBM25Search(query, candidatePoolSize, scopeFilter, category),
     ]);
 
@@ -476,23 +416,15 @@ export class MemoryRetriever {
     const fusedResults = await this.fuseResults(vectorResults, bm25Results);
 
     // Apply minimum score threshold
-    const filtered = fusedResults.filter(
-      (r) => r.score >= this.config.minScore,
-    );
+    const filtered = fusedResults.filter((r) => r.score >= this.config.minScore);
 
     // Rerank if enabled
     const reranked =
       this.config.rerank !== "none"
-        ? await this.rerankResults(
-          query,
-          queryVector,
-          filtered.slice(0, limit * 2),
-        )
+        ? await this.rerankResults(query, queryVector, filtered.slice(0, limit * 2))
         : filtered;
 
-    const temporallyRanked = this.decayEngine
-      ? reranked
-      : this.applyImportanceWeight(this.applyRecencyBoost(reranked));
+    const temporallyRanked = this.decayEngine ? reranked : this.applyImportanceWeight(this.applyRecencyBoost(reranked));
 
     // Apply length normalization (penalize long entries dominating via keyword density)
     const lengthNormalized = this.applyLengthNormalization(temporallyRanked);
@@ -500,17 +432,13 @@ export class MemoryRetriever {
     // Hard minimum score cutoff should be based on semantic / lexical relevance.
     // Lifecycle decay and time-decay are used for re-ranking, not for dropping
     // otherwise relevant fresh memories.
-    const hardFiltered = lengthNormalized.filter(r => r.score >= this.config.hardMinScore);
+    const hardFiltered = lengthNormalized.filter((r) => r.score >= this.config.hardMinScore);
 
     // Apply lifecycle-aware decay or legacy time decay after thresholding
-    const lifecycleRanked = this.decayEngine
-      ? this.applyDecayBoost(hardFiltered)
-      : this.applyTimeDecay(hardFiltered);
+    const lifecycleRanked = this.decayEngine ? this.applyDecayBoost(hardFiltered) : this.applyTimeDecay(hardFiltered);
 
     // Filter noise
-    const denoised = this.config.filterNoise
-      ? filterNoise(lifecycleRanked, r => r.entry.text)
-      : lifecycleRanked;
+    const denoised = this.config.filterNoise ? filterNoise(lifecycleRanked, (r) => r.entry.text) : lifecycleRanked;
 
     // MMR deduplication: avoid top-k filled with near-identical memories
     const deduplicated = this.applyMMRDiversity(denoised);
@@ -522,20 +450,12 @@ export class MemoryRetriever {
     queryVector: number[],
     limit: number,
     scopeFilter?: string[],
-    category?: string,
+    category?: string
   ): Promise<Array<MemorySearchResult & { rank: number }>> {
-    const results = await this.store.vectorSearch(
-      queryVector,
-      limit,
-      0.1,
-      scopeFilter,
-      { excludeInactive: true },
-    );
+    const results = await this.store.vectorSearch(queryVector, limit, 0.1, scopeFilter, { excludeInactive: true });
 
     // Filter by category if specified
-    const filtered = category
-      ? results.filter((r) => r.entry.category === category)
-      : results;
+    const filtered = category ? results.filter((r) => r.entry.category === category) : results;
 
     return filtered.map((result, index) => ({
       ...result,
@@ -547,14 +467,12 @@ export class MemoryRetriever {
     query: string,
     limit: number,
     scopeFilter?: string[],
-    category?: string,
+    category?: string
   ): Promise<Array<MemorySearchResult & { rank: number }>> {
     const results = await this.store.bm25Search(query, limit, scopeFilter, { excludeInactive: true });
 
     // Filter by category if specified
-    const filtered = category
-      ? results.filter((r) => r.entry.category === category)
-      : results;
+    const filtered = category ? results.filter((r) => r.entry.category === category) : results;
 
     return filtered.map((result, index) => ({
       ...result,
@@ -564,7 +482,7 @@ export class MemoryRetriever {
 
   private async fuseResults(
     vectorResults: Array<MemorySearchResult & { rank: number }>,
-    bm25Results: Array<MemorySearchResult & { rank: number }>,
+    bm25Results: Array<MemorySearchResult & { rank: number }>
   ): Promise<RetrievalResult[]> {
     // Create maps for quick lookup
     const vectorMap = new Map<string, MemorySearchResult & { rank: number }>();
@@ -610,28 +528,17 @@ export class MemoryRetriever {
       // Weighted fusion: vectorWeight/bm25Weight directly control score blending.
       // BM25 high-score floor (>= 0.75) preserves exact keyword matches
       // (e.g. API keys, ticket numbers) that may have low vector similarity.
-      const weightedFusion = (vectorScore * this.config.vectorWeight)
-                           + (bm25Score * this.config.bm25Weight);
+      const weightedFusion = vectorScore * this.config.vectorWeight + bm25Score * this.config.bm25Weight;
       const fusedScore = vectorResult
-        ? clamp01(
-          Math.max(
-            weightedFusion,
-            bm25Score >= 0.75 ? bm25Score * 0.92 : 0,
-          ),
-          0.1,
-        )
+        ? clamp01(Math.max(weightedFusion, bm25Score >= 0.75 ? bm25Score * 0.92 : 0), 0.1)
         : clamp01(bm25Result!.score, 0.1);
 
       fusedResults.push({
         entry: baseResult.entry,
         score: fusedScore,
         sources: {
-          vector: vectorResult
-            ? { score: vectorResult.score, rank: vectorResult.rank }
-            : undefined,
-          bm25: bm25Result
-            ? { score: bm25Result.score, rank: bm25Result.rank }
-            : undefined,
+          vector: vectorResult ? { score: vectorResult.score, rank: vectorResult.rank } : undefined,
+          bm25: bm25Result ? { score: bm25Result.score, rank: bm25Result.rank } : undefined,
           fused: { score: fusedScore },
         },
       });
@@ -648,7 +555,7 @@ export class MemoryRetriever {
   private async rerankResults(
     query: string,
     queryVector: number[],
-    results: RetrievalResult[],
+    results: RetrievalResult[]
   ): Promise<RetrievalResult[]> {
     if (results.length === 0) {
       return results;
@@ -659,8 +566,7 @@ export class MemoryRetriever {
       try {
         const provider = this.config.rerankProvider || "jina";
         const model = this.config.rerankModel || "jina-reranker-v3";
-        const endpoint =
-          this.config.rerankEndpoint || "https://api.jina.ai/v1/rerank";
+        const endpoint = this.config.rerankEndpoint || "https://api.jina.ai/v1/rerank";
         const documents = results.map((r) => r.entry.text);
 
         // Build provider-specific request
@@ -670,7 +576,7 @@ export class MemoryRetriever {
           model,
           query,
           documents,
-          results.length,
+          results.length
         );
 
         // Timeout: 5 seconds to prevent stalling retrieval pipeline
@@ -693,9 +599,7 @@ export class MemoryRetriever {
           const parsed = parseRerankResponse(provider, data);
 
           if (!parsed) {
-            console.warn(
-              "Rerank API: invalid response shape, falling back to cosine",
-            );
+            console.warn("Rerank API: invalid response shape, falling back to cosine");
           } else {
             // Build a Set of returned indices to identify unreturned candidates
             const returnedIndices = new Set(parsed.map((r) => r.index));
@@ -706,10 +610,7 @@ export class MemoryRetriever {
                 const original = results[item.index];
                 const floor = this.getRerankPreservationFloor(original, false);
                 // Blend: 60% cross-encoder score + 40% original fused score
-                const blendedScore = clamp01WithFloor(
-                  item.score * 0.6 + original.score * 0.4,
-                  floor,
-                );
+                const blendedScore = clamp01WithFloor(item.score * 0.6 + original.score * 0.4, floor);
                 return {
                   ...original,
                   score: blendedScore,
@@ -723,23 +624,16 @@ export class MemoryRetriever {
             // Keep unreturned candidates with their original scores (slightly penalized)
             const unreturned = results
               .filter((_, idx) => !returnedIndices.has(idx))
-              .map(r => ({
+              .map((r) => ({
                 ...r,
-                score: clamp01WithFloor(
-                  r.score * 0.8,
-                  this.getRerankPreservationFloor(r, true),
-                ),
+                score: clamp01WithFloor(r.score * 0.8, this.getRerankPreservationFloor(r, true)),
               }));
 
-            return [...reranked, ...unreturned].sort(
-              (a, b) => b.score - a.score,
-            );
+            return [...reranked, ...unreturned].sort((a, b) => b.score - a.score);
           }
         } else {
           const errText = await response.text().catch(() => "");
-          console.warn(
-            `Rerank API returned ${response.status}: ${errText.slice(0, 200)}, falling back to cosine`,
-          );
+          console.warn(`Rerank API returned ${response.status}: ${errText.slice(0, 200)}, falling back to cosine`);
         }
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
@@ -801,8 +695,7 @@ export class MemoryRetriever {
 
     const now = Date.now();
     const boosted = results.map((r) => {
-      const ts =
-        r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
+      const ts = r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
       const ageDays = (now - ts) / 86_400_000;
       const boost = Math.exp(-ageDays / recencyHalfLifeDays) * recencyWeight;
       return {
@@ -859,9 +752,7 @@ export class MemoryRetriever {
    * Long, sprawling entries (> anchor) get penalized.
    * Formula: score *= 1 / (1 + log2(charLen / anchor))
    */
-  private applyLengthNormalization(
-    results: RetrievalResult[],
-  ): RetrievalResult[] {
+  private applyLengthNormalization(results: RetrievalResult[]): RetrievalResult[] {
     const anchor = this.config.lengthNormAnchor;
     if (!anchor || anchor <= 0) return results;
 
@@ -900,20 +791,17 @@ export class MemoryRetriever {
 
     const now = Date.now();
     const decayed = results.map((r) => {
-      const ts =
-        r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
+      const ts = r.entry.timestamp && r.entry.timestamp > 0 ? r.entry.timestamp : now;
       const ageDays = (now - ts) / 86_400_000;
 
       // Access reinforcement: frequently recalled memories decay slower
-      const { accessCount, lastAccessedAt } = parseAccessMetadata(
-        r.entry.metadata,
-      );
+      const { accessCount, lastAccessedAt } = parseAccessMetadata(r.entry.metadata);
       const effectiveHL = computeEffectiveHalfLife(
         halfLife,
         accessCount,
         lastAccessedAt,
         this.config.reinforcementFactor,
-        this.config.maxHalfLifeMultiplier,
+        this.config.maxHalfLifeMultiplier
       );
 
       // floor at 0.5: even very old entries keep at least 50% of their score
@@ -938,12 +826,12 @@ export class MemoryRetriever {
     if (!this.decayEngine) return results;
 
     const now = Date.now();
-    const pairs = results.map(r => {
+    const pairs = results.map((r) => {
       const { memory } = getDecayableFromEntry(r.entry);
       return { r, memory };
     });
 
-    const scored = pairs.map(p => ({ memory: p.memory, score: p.r.score }));
+    const scored = pairs.map((p) => ({ memory: p.memory, score: p.r.score }));
     this.decayEngine.applySearchBoost(scored, now);
 
     const boosted = pairs.map((p, i) => ({ ...p.r, score: scored[i].score }));
@@ -1016,10 +904,7 @@ export class MemoryRetriever {
    * (e.g. 3 similar "SVG style" memories) while keeping them available
    * if the pool is small.
    */
-  private applyMMRDiversity(
-    results: RetrievalResult[],
-    similarityThreshold = 0.85,
-  ): RetrievalResult[] {
+  private applyMMRDiversity(results: RetrievalResult[], similarityThreshold = 0.85): RetrievalResult[] {
     if (results.length <= 1) return results;
 
     const selected: RetrievalResult[] = [];
@@ -1102,7 +987,7 @@ export function createRetriever(
   store: MemoryStore,
   embedder: Embedder,
   config?: Partial<RetrievalConfig>,
-  options?: { decayEngine?: DecayEngine | null },
+  options?: { decayEngine?: DecayEngine | null }
 ): MemoryRetriever {
   const fullConfig = { ...DEFAULT_RETRIEVAL_CONFIG, ...config };
   return new MemoryRetriever(store, embedder, fullConfig, options?.decayEngine ?? null);

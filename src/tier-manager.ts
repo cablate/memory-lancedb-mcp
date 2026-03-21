@@ -65,20 +65,12 @@ export interface TierManager {
    * Evaluate whether a memory should change tiers.
    * Returns the transition if a change is needed, null otherwise.
    */
-  evaluate(
-    memory: TierableMemory,
-    decayScore: DecayScore,
-    now?: number,
-  ): TierTransition | null;
+  evaluate(memory: TierableMemory, decayScore: DecayScore, now?: number): TierTransition | null;
 
   /**
    * Evaluate multiple memories and return all transitions.
    */
-  evaluateAll(
-    memories: TierableMemory[],
-    decayScores: DecayScore[],
-    now?: number,
-  ): TierTransition[];
+  evaluateAll(memories: TierableMemory[], decayScores: DecayScore[], now?: number): TierTransition[];
 }
 
 // ============================================================================
@@ -87,14 +79,8 @@ export interface TierManager {
 
 const MS_PER_DAY = 86_400_000;
 
-export function createTierManager(
-  config: TierConfig = DEFAULT_TIER_CONFIG,
-): TierManager {
-  function evaluate(
-    memory: TierableMemory,
-    decayScore: DecayScore,
-    now: number = Date.now(),
-  ): TierTransition | null {
+export function createTierManager(config: TierConfig = DEFAULT_TIER_CONFIG): TierManager {
+  function evaluate(memory: TierableMemory, decayScore: DecayScore, now: number = Date.now()): TierTransition | null {
     const ageDays = (now - memory.createdAt) / MS_PER_DAY;
 
     switch (memory.tier) {
@@ -132,8 +118,7 @@ export function createTierManager(
         // Demote to Peripheral?
         if (
           decayScore.composite < config.peripheralCompositeThreshold ||
-          (ageDays > config.peripheralAgeDays &&
-            memory.accessCount < config.workingAccessThreshold)
+          (ageDays > config.peripheralAgeDays && memory.accessCount < config.workingAccessThreshold)
         ) {
           return {
             memoryId: memory.id,

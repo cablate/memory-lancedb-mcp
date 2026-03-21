@@ -6,10 +6,7 @@
  * - buildMergePrompt: Memory merge with three-level structure
  */
 
-export function buildExtractionPrompt(
-  conversationText: string,
-  user: string,
-): string {
+export function buildExtractionPrompt(conversationText: string, user: string): string {
   return `Analyze the following session context and extract memories worth long-term preservation.
 
 User: ${user}
@@ -133,7 +130,7 @@ export function buildDedupPrompt(
   candidateAbstract: string,
   candidateOverview: string,
   candidateContent: string,
-  existingMemories: string,
+  existingMemories: string
 ): string {
   return `Determine how to handle this candidate memory.
 
@@ -180,7 +177,7 @@ export function buildMergePrompt(
   newAbstract: string,
   newOverview: string,
   newContent: string,
-  category: string,
+  category: string
 ): string {
   return `Merge the following memory into a single coherent record with all three levels.
 

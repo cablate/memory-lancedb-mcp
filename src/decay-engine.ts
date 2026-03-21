@@ -86,24 +86,16 @@ export interface DecayEngine {
   /** Calculate decay scores for multiple memories */
   scoreAll(memories: DecayableMemory[], now?: number): DecayScore[];
   /** Apply decay boost to search results (multiplies each score by boost) */
-  applySearchBoost(
-    results: Array<{ memory: DecayableMemory; score: number }>,
-    now?: number,
-  ): void;
+  applySearchBoost(results: Array<{ memory: DecayableMemory; score: number }>, now?: number): void;
   /** Find stale memories (composite below threshold) */
-  getStaleMemories(
-    memories: DecayableMemory[],
-    now?: number,
-  ): DecayScore[];
+  getStaleMemories(memories: DecayableMemory[], now?: number): DecayScore[];
 }
 
 // ============================================================================
 // Factory
 // ============================================================================
 
-export function createDecayEngine(
-  config: DecayConfig = DEFAULT_DECAY_CONFIG,
-): DecayEngine {
+export function createDecayEngine(config: DecayConfig = DEFAULT_DECAY_CONFIG): DecayEngine {
   const {
     recencyHalfLifeDays: halfLife,
     recencyWeight: rw,
@@ -149,8 +141,7 @@ export function createDecayEngine(
    * recency = exp(-lambda * daysSince^beta)
    */
   function recency(memory: DecayableMemory, now: number): number {
-    const lastActive =
-      memory.accessCount > 0 ? memory.lastAccessedAt : memory.createdAt;
+    const lastActive = memory.accessCount > 0 ? memory.lastAccessedAt : memory.createdAt;
     const daysSince = Math.max(0, (now - lastActive) / MS_PER_DAY);
     const effectiveHL = halfLife * Math.exp(mu * memory.importance);
     const lambda = Math.LN2 / effectiveHL;
@@ -167,12 +158,8 @@ export function createDecayEngine(
     const base = 1 - Math.exp(-memory.accessCount / 5);
     if (memory.accessCount <= 1) return base;
 
-    const lastActive =
-      memory.accessCount > 0 ? memory.lastAccessedAt : memory.createdAt;
-    const accessSpanDays = Math.max(
-      1,
-      (lastActive - memory.createdAt) / MS_PER_DAY,
-    );
+    const lastActive = memory.accessCount > 0 ? memory.lastAccessedAt : memory.createdAt;
+    const accessSpanDays = Math.max(1, (lastActive - memory.createdAt) / MS_PER_DAY);
     const avgGapDays = accessSpanDays / Math.max(memory.accessCount - 1, 1);
     const recentnessBonus = Math.exp(-avgGapDays / 30);
     return base * (0.5 + 0.5 * recentnessBonus);
@@ -213,16 +200,14 @@ export function createDecayEngine(
       for (const r of results) {
         const ds = scoreOne(r.memory, now);
         const tierFloor = Math.max(getTierFloor(r.memory.tier), ds.composite);
-        const multiplier = boostMin + ((1 - boostMin) * tierFloor);
+        const multiplier = boostMin + (1 - boostMin) * tierFloor;
         r.score *= Math.min(1, Math.max(boostMin, multiplier));
       }
     },
 
     getStaleMemories(memories, now = Date.now()) {
       const scores = memories.map((m) => scoreOne(m, now));
-      return scores
-        .filter((s) => s.composite < staleThreshold)
-        .sort((a, b) => a.composite - b.composite);
+      return scores.filter((s) => s.composite < staleThreshold).sort((a, b) => a.composite - b.composite);
     },
   };
 }
