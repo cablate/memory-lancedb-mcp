@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.9
+
+- feat: disable self-improvement tools by default
+
+
 ## 2.0.8
 
 - docs: consolidate tool positioning + improvement roadmap into single doc
