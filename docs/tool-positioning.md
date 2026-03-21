@@ -34,12 +34,13 @@
 **關鍵參數**：
 - `text`（必填）— 要記住的內容
 - `importance`（預設 0.7）— 影響衰減排序
-- `category` — preference / fact / decision / entity / skill / other
+- `category` — preference / fact / decision / entity / skill / lesson / other
 - `scope` — 記憶隔離空間
 
 **設計決策**：
 - importance 有下限 clamp（最低 0.7），避免 AI 自行設太低導致記憶快速衰減
 - noise filter 是 fail-open 的（寧可多存也不漏存）
+- Store 成功後，回覆中附帶 cosine 0.8~0.98 的相似記憶提示（v2.0.10+），讓 agent 當場判斷是否需要合併或調整
 
 ---
 
@@ -62,6 +63,7 @@
 - `limit`（預設 5，上限 20）
 - `scope` — 指定搜尋範圍
 - `category` — 按類別篩選
+- `since`（v2.0.10+）— 時間範圍過濾，支援 `"3d"` / `"1w"` / `"2h"` 短碼或 ISO 時間戳
 
 **設計決策**：
 - 有 retry 機制（`retrieveWithRetry`），retrieval 失敗會重試
@@ -124,6 +126,7 @@
 - FTS 支援狀態
 - 按 scope 分組計數
 - 按 category 分組計數
+- 休眠記憶數（超過 30 天未被 access，v2.0.10+）
 
 **使用場景**：AI agent 自我診斷、系統健康檢查、向使用者報告記憶狀態
 
@@ -230,61 +233,45 @@ custom:{name}   ← 自定義
 
 # 改進路線圖
 
-## 現有痛點分析
+## 已實作改進（v2.0.9 ~ v2.0.10）
 
-基於 AI agent 多工作區（每個 agent 獨立 `.memory-db/`）的實際使用模式，對照現有工具能力，識別出以下差距：
+基於 AI agent 多工作區（每個 agent 獨立 `.memory-db/`）的實際使用模式，對照現有工具能力識別差距並完成修復。
 
-### 痛點 1：Store 不回饋相似記憶
+### ✅ Store 回饋相似記憶（v2.0.10）
 
-**現狀**：cosine > 0.98 才攔截（完全重複），0.85~0.97 的高度相似記憶靜默通過。
-**後果**：同一主題的零散記憶越積越多，例如：
-- 「Cab 偏好直接溝通」
-- 「Cab 說一次就要聽進去」
-- 「與 Cab 討論設計時先提判斷再給選項」
+**原痛點**：cosine > 0.98 才攔截（完全重複），0.85~0.97 的高度相似記憶靜默通過，導致碎片化記憶越積越多。
 
-這三條語義高度相關，但都低於 0.98 門檻，全部存入。隨時間推移，碎片化記憶拉低 recall 品質。
-
-**改進**：Store 成功時，附帶回覆最相似的已存記憶（若 cosine > 0.8）。Agent 在存入當下就能判斷要不要調整或合併。
+**已實作**：`handleMemoryStore` 存入成功後，回覆中附帶 cosine 0.8~0.98 的相似記憶提示（最多 3 條），Agent 當場可判斷要不要合併或調整。vectorSearch 從取 1 條改為取 3 條以捕捉相似（非重複）記憶。
 
 ---
 
-### 痛點 2：Recall 缺少時間維度
+### ✅ Recall `since` 時間過濾（v2.0.10）
 
-**現狀**：只能用語義查詢搜尋，沒有時間範圍參數。
-**後果**：每次 session 啟動，agent 要用「猜關鍵字」的方式搜記憶。「最近三天學了什麼？」→ 做不到。
+**原痛點**：只能語義搜尋，無法按時間範圍檢索（「最近三天學了什麼？」做不到）。
 
-**改進**：`memory_recall` 加 `since` 參數（epoch ms 或 `"3d"` / `"1w"` 格式），在 retriever 層加時間過濾。
+**已實作**：`memory_recall` 新增 `since` 參數，支援 `"3d"` / `"1w"` / `"2h"` 短碼或 ISO 時間戳。以 post-filter 實作（over-fetch 3x 再過濾），不侵入 retriever 內部。
 
-**啟動協議變化**：
+**啟動協議整合**：
 ```
-# 現在
-memory_recall "當前任務相關關鍵字"      ← 命中率靠運氣
-
-# 改完後
-memory_recall query="*" since="3d"      ← 最近 3 天全部記憶
+memory_recall query="*" since="3d"       ← 最近 3 天全部記憶
 memory_recall query="lancedb" since="7d" ← 特定主題 + 時間範圍
 ```
 
 ---
 
-### 痛點 3：Category 缺少 `lesson`
+### ✅ `lesson` Category（v2.0.10）
 
-**現狀**：踩坑教訓是 agent 最常記錄的類型，但沒有對應 category。被迫拆成 `fact`（技術事實）+ `decision`（行為決策）雙寫。
-**後果**：
-- 每次踩坑要存兩條，增加漏存風險
-- Recall 時無法 `category: "lesson"` 精準篩選踩坑記錄
-- 語義上是一個概念，硬拆成兩條不自然
+**原痛點**：踩坑教訓被迫拆成 `fact` + `decision` 雙寫，增加漏存風險且語義不自然。
 
-**改進**：加 `lesson` 到 MEMORY_CATEGORIES enum。Session-end checklist 從「踩坑必須雙層」簡化為「踩坑 → `memory_store category="lesson"`」。
+**已實作**：`MEMORY_CATEGORIES` 新增 `lesson`，所有 tool 的 enum 自動生效。踩坑 → `memory_store category="lesson"` 一步到位。
 
 ---
 
-### 痛點 4：Stats 缺少休眠記憶統計
+### ✅ Stats 休眠記憶統計（v2.0.10）
 
-**現狀**：`memory_stats` 只輸出總數和分類計數，不知道有多少記憶從未被 recall。
-**後果**：記憶只增不減，agent 沒有動力整理。100 條記憶裡可能有 40 條從未被用過，但 agent 看不到。
+**原痛點**：`memory_stats` 只有總數和分類計數，agent 看不到有多少記憶從未被 recall。
 
-**改進**：`memory_stats` 加 dormant count（超過 N 天未被 access 的記憶數量）。不需要接入 TierManager，只需查詢 `last_accessed_at` 欄位。
+**已實作**：`store.stats()` 新增 `dormantCount`，統計 `last_accessed_at` 超過 30 天的記憶數。不需 TierManager，純 metadata 查詢。
 
 **搭配排程使用**：
 ```yaml
@@ -299,24 +286,20 @@ prompt: |
 
 ---
 
-### 痛點 5：Self-Improvement Tools 與現有治理體系衝突
+### ✅ Self-Improvement Tools 預設關閉（v2.0.9）
 
-**現狀**：三個 self_improvement tools 寫入 `.learnings/` 目錄（LEARNINGS.md、ERRORS.md）。
-**問題**：在多 agent 工作區架構中，`.learnings/` 已被移除（與 CLAUDE.md Lessons Learned、knowledge/ 嚴重重疊）。這三個 tool 寫入的目錄不存在。
+**原痛點**：三個 self_improvement tools 寫入 `.learnings/` 目錄，但多 agent 架構中該目錄已被移除。功能形同死代碼。
 
-**建議**：移除這三個 tool 的暴露，或重新定位為寫入向量記憶（而非檔案系統）。
+**已實作**：`enableSelfImprovementTools` 預設值從 `true` 改為 `false`。新增 `MEMORY_ENABLE_SELF_IMPROVEMENT` 環境變數。需要的使用者明確設 `true` 啟用，既有明確設定的使用者不受影響。
 
 ---
 
-## 實作優先級
+## 實作摘要
 
-| 優先級 | 改進項 | 改動量 | 效益 |
-|--------|--------|--------|------|
-| **P1** | Store 回饋相似記憶 | 小 — 改 `handleMemoryStore` 回傳 | 從源頭提升記憶品質 |
-| **P1** | 加 `lesson` category | 小 — 加 enum 值 | 消除雙寫負擔 |
-| **P2** | Recall 加 `since` 參數 | 中 — 改 retriever 層 | 解決 session 啟動最大痛點 |
-| **P2** | Stats 加 dormant count | 小 — 加一個查詢 | 記憶衛生的觀測基礎 |
-| **P3** | Self-Improvement tools 重定位 | 中 — 移除或重寫 handler | 消除死功能 |
+| 版本 | 改進項 | 改動範圍 |
+|------|--------|---------|
+| **v2.0.9** | Self-Improvement tools 預設關閉 | `config.ts`、`server.ts`、README |
+| **v2.0.10** | Store 回饋 + lesson + since + dormant | `server.ts`、`src/store.ts`、README |
 
 ## 推遲項目
 
@@ -332,7 +315,7 @@ prompt: |
 
 ### 啟動協議整合（Recall + since）
 
-改完 `since` 參數後，啟動協議第 5 步可標準化為：
+啟動協議第 5 步標準化為：
 ```
 1. memory_recall query="*" since="3d" limit=10   → 最近 3 天的記憶快照
 2. memory_recall query="{當前任務關鍵字}"          → 語義搜尋補充
@@ -343,7 +326,6 @@ prompt: |
 ### Session-End Checklist 整合（lesson + store 回饋）
 
 ```
-# 改完後的 checklist 流程
 踩坑 → memory_store category="lesson"（一步到位，不再雙寫）
        ↓
      系統回饋：「Related: 2 similar lessons exist」
