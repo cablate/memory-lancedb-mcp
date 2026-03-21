@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.5
+
+- test: improve test infrastructure
+
+
 ## 2.0.4
 
 - feat: add ESLint, Prettier, tsconfig and project infrastructure
