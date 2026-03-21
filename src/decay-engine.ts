@@ -95,7 +95,8 @@ export interface DecayEngine {
 // Factory
 // ============================================================================
 
-export function createDecayEngine(config: DecayConfig = DEFAULT_DECAY_CONFIG): DecayEngine {
+export function createDecayEngine(config: Partial<DecayConfig> = {}): DecayEngine {
+  const mergedConfig: DecayConfig = { ...DEFAULT_DECAY_CONFIG, ...config };
   const {
     recencyHalfLifeDays: halfLife,
     recencyWeight: rw,
@@ -110,7 +111,7 @@ export function createDecayEngine(config: DecayConfig = DEFAULT_DECAY_CONFIG): D
     coreDecayFloor,
     workingDecayFloor,
     peripheralDecayFloor,
-  } = config;
+  } = mergedConfig;
 
   function getTierBeta(tier: MemoryTier): number {
     switch (tier) {

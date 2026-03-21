@@ -1063,7 +1063,7 @@ async function main() {
   };
 
   // Build tool list
-  const allTools = [...CORE_TOOLS];
+  const allTools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> = [...CORE_TOOLS];
   if (config.enableManagementTools) {
     allTools.push(...MANAGEMENT_TOOLS);
   }

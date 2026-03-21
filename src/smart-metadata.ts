@@ -5,7 +5,7 @@ type LegacyStoreCategory = "preference" | "fact" | "decision" | "entity" | "othe
 
 type EntryLike = {
   text?: string;
-  category?: LegacyStoreCategory;
+  category?: LegacyStoreCategory | MemoryCategory | string;
   importance?: number;
   timestamp?: number;
   metadata?: string;
@@ -167,7 +167,7 @@ export function parseSmartMetadata(rawMetadata: string | undefined, entry: Entry
   const timestamp =
     typeof entry.timestamp === "number" && Number.isFinite(entry.timestamp) ? entry.timestamp : Date.now();
 
-  const memoryCategory = reverseMapLegacyCategory(entry.category, text);
+  const memoryCategory = reverseMapLegacyCategory(entry.category as LegacyStoreCategory | undefined, text);
   const l0 = normalizeText(parsed.l0_abstract, text);
   const l2 = normalizeText(parsed.l2_content, text);
   const validFrom = normalizeTimestamp(parsed.valid_from, timestamp);
