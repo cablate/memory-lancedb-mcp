@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.10
+
+- feat: add lesson category, recall time filter, store feedback, dormant stats
+
+
 ## 2.0.9
 
 - feat: disable self-improvement tools by default
