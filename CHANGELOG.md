@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.14
+
+- docs: add banner and logo, update README headers
+
+
 ## 2.0.13
 
 - fix: resolve all pre-existing TypeScript type errors
