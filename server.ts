@@ -731,7 +731,7 @@ async function main() {
   if (config.enableManagementTools) {
     allTools.push(...MANAGEMENT_TOOLS);
   }
-  if (config.enableSelfImprovementTools !== false) {
+  if (config.enableSelfImprovementTools) {
     allTools.push(...SELF_IMPROVEMENT_TOOLS);
   }
 

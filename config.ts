@@ -167,7 +167,8 @@ export function loadConfig(): McpConfig {
     tier: typeof raw.tier === "object" && raw.tier !== null ? (raw.tier as any) : undefined,
     scopes: typeof raw.scopes === "object" && raw.scopes !== null ? (raw.scopes as any) : undefined,
     enableManagementTools: raw.enableManagementTools === true || process.env.MEMORY_ENABLE_MANAGEMENT === "true",
-    enableSelfImprovementTools: raw.enableSelfImprovementTools !== false,
+    enableSelfImprovementTools:
+      raw.enableSelfImprovementTools === true || process.env.MEMORY_ENABLE_SELF_IMPROVEMENT === "true",
     llm: typeof raw.llm === "object" && raw.llm !== null ? (raw.llm as any) : undefined,
   };
 }
