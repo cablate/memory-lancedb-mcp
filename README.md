@@ -1,12 +1,8 @@
 <div align="center">
 
-# memory-lancedb-mcp
+<img src="assets/banner.png" alt="memory-lancedb-mcp" width="100%" />
 
 > **Built on [CortexReach/memory-lancedb-pro](https://github.com/CortexReach/memory-lancedb-pro)** — original work by [win4r](https://github.com/win4r) and contributors. Refactored from OpenClaw plugin into a standalone MCP server.
-
-**Production-grade long-term memory for AI agents via [MCP](https://modelcontextprotocol.io)**
-
-_Hybrid retrieval (Vector + BM25), cross-encoder rerank, multi-scope isolation, memory lifecycle management._
 
 [![npm version](https://img.shields.io/npm/v/@cablate/memory-lancedb-mcp)](https://www.npmjs.com/package/@cablate/memory-lancedb-mcp)
 [![LanceDB](https://img.shields.io/badge/LanceDB-Vectorstore-orange)](https://lancedb.com)

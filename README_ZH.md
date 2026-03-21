@@ -1,12 +1,8 @@
 <div align="center">
 
-# memory-lancedb-mcp
+<img src="assets/banner.png" alt="memory-lancedb-mcp" width="100%" />
 
 > **基於 [CortexReach/memory-lancedb-pro](https://github.com/CortexReach/memory-lancedb-pro)** — 原作者 [win4r](https://github.com/win4r) 及貢獻者們。從 OpenClaw 外掛重構為獨立 MCP 伺服器。
-
-**透過 [MCP](https://modelcontextprotocol.io) 為 AI Agent 提供生產級長期記憶**
-
-_混合檢索（向量 + BM25）、Cross-Encoder 重排序、多 Scope 隔離、記憶生命週期管理_
 
 [![npm version](https://img.shields.io/npm/v/@cablate/memory-lancedb-mcp)](https://www.npmjs.com/package/@cablate/memory-lancedb-mcp)
 [![LanceDB](https://img.shields.io/badge/LanceDB-Vectorstore-orange)](https://lancedb.com)
