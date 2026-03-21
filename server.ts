@@ -45,7 +45,7 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MEMORY_CATEGORIES = ["preference", "fact", "decision", "entity", "skill", "other"] as const;
+const MEMORY_CATEGORIES = ["preference", "fact", "decision", "entity", "skill", "lesson", "other"] as const;
 
 function clamp01(v: number, fallback: number): number {
   const n = Number.isFinite(v) ? v : fallback;
@@ -94,6 +94,19 @@ function textResult(text: string) {
   return { content: [{ type: "text" as const, text }] };
 }
 
+function parseSince(since: string | undefined): number | undefined {
+  if (!since) return undefined;
+  const match = since.match(/^(\d+)(h|d|w|m)$/);
+  if (match) {
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+    const msMap: Record<string, number> = { h: 3600000, d: 86400000, w: 604800000, m: 2592000000 };
+    return Date.now() - value * msMap[unit];
+  }
+  const ts = new Date(since).getTime();
+  return isNaN(ts) ? undefined : ts;
+}
+
 // ---------------------------------------------------------------------------
 // Server context
 // ---------------------------------------------------------------------------
@@ -123,6 +136,11 @@ const CORE_TOOLS = [
         limit: { type: "number", description: "Max results to return (default: 5, max: 20)" },
         scope: { type: "string", description: "Specific memory scope to search in (optional)" },
         category: { type: "string", enum: MEMORY_CATEGORIES, description: "Filter by category" },
+        since: {
+          type: "string",
+          description:
+            'Time range filter. Use shorthand like "3d" (3 days), "1w" (1 week), "2h" (2 hours), or ISO timestamp.',
+        },
       },
       required: ["query"],
     },
@@ -248,6 +266,7 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
   const limit = clampInt(Number(params.limit) || 5, 1, 20);
   const scope = params.scope as string | undefined;
   const category = params.category as string | undefined;
+  const sinceTs = parseSince(params.since as string | undefined);
 
   let scopeFilter = ctx.scopeManager.getAccessibleScopes("main");
   if (scope) {
@@ -258,10 +277,19 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     }
   }
 
-  const results = filterUserMdExclusiveRecallResults(
-    await retrieveWithRetry(ctx.retriever, { query, limit, scopeFilter, category, source: "manual" }),
+  // Fetch more candidates when time-filtering to compensate for post-filter loss
+  const fetchLimit = sinceTs ? Math.min(limit * 3, 20) : limit;
+
+  let results = filterUserMdExclusiveRecallResults(
+    await retrieveWithRetry(ctx.retriever, { query, limit: fetchLimit, scopeFilter, category, source: "manual" }),
     ctx.workspaceBoundary
   );
+
+  if (sinceTs) {
+    results = results.filter((r) => r.entry.timestamp >= sinceTs);
+  }
+
+  results = results.slice(0, limit);
 
   if (results.length === 0) {
     return textResult("No relevant memories found.");
@@ -313,10 +341,10 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
 
   const vector = await ctx.embedder.embedPassage(text);
 
-  // Duplicate check
+  // Duplicate / similarity check
   let existing: Awaited<ReturnType<MemoryStore["vectorSearch"]>> = [];
   try {
-    existing = await ctx.store.vectorSearch(vector, 1, 0.1, [scope], { excludeInactive: true });
+    existing = await ctx.store.vectorSearch(vector, 3, 0.1, [scope], { excludeInactive: true });
   } catch {
     /* fail-open */
   }
@@ -339,7 +367,18 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
     ),
   });
 
-  return textResult(`Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`);
+  let response = `Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`;
+
+  // Surface similar memories for awareness
+  const similar = existing.filter((e) => e.score > 0.8 && e.score <= 0.98);
+  if (similar.length > 0) {
+    const hints = similar
+      .map((s) => `  - [${s.entry.id.slice(0, 8)}] (${(s.score * 100).toFixed(0)}%) ${s.entry.text.slice(0, 80)}`)
+      .join("\n");
+    response += `\n\nRelated (${similar.length} similar ${similar.length === 1 ? "memory" : "memories"}):\n${hints}`;
+  }
+
+  return textResult(response);
 }
 
 async function handleMemoryForget(ctx: ServerContext, params: Record<string, unknown>) {
@@ -504,6 +543,7 @@ async function handleMemoryStats(ctx: ServerContext, params: Record<string, unkn
   const lines = [
     `Memory Statistics:`,
     `• Total memories: ${stats.totalCount}`,
+    `• Dormant (>30d no access): ${stats.dormantCount}`,
     `• Available scopes: ${scopeStats.totalScopes}`,
     `• Retrieval mode: ${retrievalConfig.mode}`,
     `• FTS support: ${ctx.store.hasFtsSupport ? "Yes" : "No"}`,

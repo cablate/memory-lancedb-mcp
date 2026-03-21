@@ -88,12 +88,12 @@ npm install -g @cablate/memory-lancedb-mcp
 
 ### 核心工具
 
-| 工具            | 說明                                                        |
-| --------------- | ----------------------------------------------------------- |
-| `memory_recall` | 混合檢索搜尋記憶（向量 + 關鍵字），支援 scope/category 過濾 |
-| `memory_store`  | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾                |
-| `memory_forget` | 依 ID 或搜尋查詢刪除記憶                                    |
-| `memory_update` | 更新現有記憶。時間類 category 自動建立新版本以保留歷史      |
+| 工具            | 說明                                                                       |
+| --------------- | -------------------------------------------------------------------------- |
+| `memory_recall` | 混合檢索搜尋記憶（向量 + 關鍵字），支援 scope/category/時間過濾（`since`） |
+| `memory_store`  | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾，顯示相似記憶提示             |
+| `memory_forget` | 依 ID 或搜尋查詢刪除記憶                                                   |
+| `memory_update` | 更新現有記憶。時間類 category 自動建立新版本以保留歷史                     |
 
 ### 管理工具（需啟用）
 
@@ -292,16 +292,16 @@ Query → BM25 FTS ─────┘
 
 LanceDB 資料表 `memories`：
 
-| 欄位         | 類型          | 說明                                                              |
-| ------------ | ------------- | ----------------------------------------------------------------- |
-| `id`         | string (UUID) | 主鍵                                                              |
-| `text`       | string        | 記憶文字（FTS 索引）                                              |
-| `vector`     | float[]       | Embedding 向量                                                    |
-| `category`   | string        | `preference` / `fact` / `decision` / `entity` / `skill` / `other` |
-| `scope`      | string        | Scope 識別碼                                                      |
-| `importance` | float         | 重要性分數 0–1                                                    |
-| `timestamp`  | int64         | 建立時間戳（毫秒）                                                |
-| `metadata`   | string (JSON) | 擴充元資料（L0/L1/L2、tier、access_count 等）                     |
+| 欄位         | 類型          | 說明                                                                         |
+| ------------ | ------------- | ---------------------------------------------------------------------------- |
+| `id`         | string (UUID) | 主鍵                                                                         |
+| `text`       | string        | 記憶文字（FTS 索引）                                                         |
+| `vector`     | float[]       | Embedding 向量                                                               |
+| `category`   | string        | `preference` / `fact` / `decision` / `entity` / `skill` / `lesson` / `other` |
+| `scope`      | string        | Scope 識別碼                                                                 |
+| `importance` | float         | 重要性分數 0–1                                                               |
+| `timestamp`  | int64         | 建立時間戳（毫秒）                                                           |
+| `metadata`   | string (JSON) | 擴充元資料（L0/L1/L2、tier、access_count 等）                                |
 
 ---
 

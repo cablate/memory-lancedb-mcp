@@ -88,12 +88,12 @@ This server exposes the following tools to MCP clients:
 
 ### Core Tools
 
-| Tool            | Description                                                                                 |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| `memory_recall` | Search memories using hybrid retrieval (vector + keyword). Supports scope/category filters. |
-| `memory_store`  | Save information to long-term memory with importance scoring and noise filtering.           |
-| `memory_forget` | Delete memories by ID or search query.                                                      |
-| `memory_update` | Update existing memories. Temporal categories auto-supersede to preserve history.           |
+| Tool            | Description                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `memory_recall` | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time filters (`since`).         |
+| `memory_store`  | Save information to long-term memory with importance scoring and noise filtering. Shows similar existing memories. |
+| `memory_forget` | Delete memories by ID or search query.                                                                             |
+| `memory_update` | Update existing memories. Temporal categories auto-supersede to preserve history.                                  |
 
 ### Management Tools (opt-in)
 
@@ -292,16 +292,16 @@ Works with **any OpenAI-compatible embedding API**:
 
 LanceDB table `memories`:
 
-| Field        | Type          | Description                                                       |
-| ------------ | ------------- | ----------------------------------------------------------------- |
-| `id`         | string (UUID) | Primary key                                                       |
-| `text`       | string        | Memory text (FTS indexed)                                         |
-| `vector`     | float[]       | Embedding vector                                                  |
-| `category`   | string        | `preference` / `fact` / `decision` / `entity` / `skill` / `other` |
-| `scope`      | string        | Scope identifier                                                  |
-| `importance` | float         | Importance score 0–1                                              |
-| `timestamp`  | int64         | Creation timestamp (ms)                                           |
-| `metadata`   | string (JSON) | Extended metadata (L0/L1/L2, tier, access_count, etc.)            |
+| Field        | Type          | Description                                                                  |
+| ------------ | ------------- | ---------------------------------------------------------------------------- |
+| `id`         | string (UUID) | Primary key                                                                  |
+| `text`       | string        | Memory text (FTS indexed)                                                    |
+| `vector`     | float[]       | Embedding vector                                                             |
+| `category`   | string        | `preference` / `fact` / `decision` / `entity` / `skill` / `lesson` / `other` |
+| `scope`      | string        | Scope identifier                                                             |
+| `importance` | float         | Importance score 0–1                                                         |
+| `timestamp`  | int64         | Creation timestamp (ms)                                                      |
+| `metadata`   | string (JSON) | Extended metadata (L0/L1/L2, tier, access_count, etc.)                       |
 
 ---
 

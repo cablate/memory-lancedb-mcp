@@ -667,6 +667,7 @@ export class MemoryStore {
     totalCount: number;
     scopeCounts: Record<string, number>;
     categoryCounts: Record<string, number>;
+    dormantCount: number;
   }> {
     await this.ensureInitialized();
 
@@ -677,10 +678,12 @@ export class MemoryStore {
       query = query.where(`((${scopeConditions}) OR scope IS NULL)`);
     }
 
-    const results = await query.select(["scope", "category"]).toArray();
+    const results = await query.select(["scope", "category", "metadata"]).toArray();
 
     const scopeCounts: Record<string, number> = {};
     const categoryCounts: Record<string, number> = {};
+    const dormantThreshold = Date.now() - 30 * 86400000; // 30 days
+    let dormantCount = 0;
 
     for (const row of results) {
       const scope = (row.scope as string | undefined) ?? "global";
@@ -688,12 +691,22 @@ export class MemoryStore {
 
       scopeCounts[scope] = (scopeCounts[scope] || 0) + 1;
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
+
+      // Count dormant: never accessed or last accessed > 30 days ago
+      try {
+        const meta = JSON.parse((row.metadata as string) || "{}");
+        const lastAccessed = meta.last_accessed_at || 0;
+        if (lastAccessed < dormantThreshold) dormantCount++;
+      } catch {
+        dormantCount++; // unparseable metadata = likely never accessed
+      }
     }
 
     return {
       totalCount: results.length,
       scopeCounts,
       categoryCounts,
+      dormantCount,
     };
   }
 
