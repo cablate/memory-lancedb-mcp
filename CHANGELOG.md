@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.8
+
+- docs: consolidate tool positioning + improvement roadmap into single doc
+
+
 ## 2.0.7
 
 - docs: add tool positioning guide with design intent and pipeline details
