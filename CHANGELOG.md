@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.4
+
+- feat: add ESLint, Prettier, tsconfig and project infrastructure
+
+
 ## 2.0.3
 
 - docs: rename README_CN to README_ZH, convert to Traditional Chinese
