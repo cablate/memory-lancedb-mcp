@@ -12,7 +12,7 @@
 [![LanceDB](https://img.shields.io/badge/LanceDB-Vectorstore-orange)](https://lancedb.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**English** | [简体中文](README_CN.md)
+**English** | [繁體中文](README_ZH.md)
 
 </div>
 
