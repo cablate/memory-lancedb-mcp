@@ -20,8 +20,8 @@ import { MemoryStore, validateStoragePath } from "./src/store.js";
 import { createEmbedder, getVectorDimensions, type Embedder } from "./src/embedder.js";
 import { createRetriever, type MemoryRetriever, type RetrievalResult } from "./src/retriever.js";
 import { createScopeManager, type MemoryScopeManager } from "./src/scopes.js";
-import { createDecayEngine } from "./src/decay-engine.js";
-// tier-manager is optional; the retriever works without it
+import { createDecayEngine, type DecayEngine } from "./src/decay-engine.js";
+import { createTierManager } from "./src/tier-manager.js";
 import { isNoise } from "./src/noise-filter.js";
 import {
   buildSmartMetadata,
@@ -183,6 +183,46 @@ const CORE_TOOLS = [
         text: { type: "string", description: "New text content (triggers re-embedding)" },
         importance: { type: "number", description: "New importance score 0-1" },
         category: { type: "string", enum: MEMORY_CATEGORIES, description: "New category" },
+      },
+      required: ["memoryId"],
+    },
+  },
+  {
+    name: "memory_merge",
+    description:
+      "Merge two related memories into one. Creates a new merged memory and invalidates both originals. Use when duplicate or fragmented memories cover the same topic.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        primaryId: {
+          type: "string",
+          description: "ID of the primary memory (text used as base if mergedText is not provided)",
+        },
+        secondaryId: { type: "string", description: "ID of the secondary memory to absorb" },
+        mergedText: {
+          type: "string",
+          description: "Explicit merged text. If omitted, both texts are concatenated.",
+        },
+        importance: { type: "number", description: "Override importance (default: max of both)" },
+        scope: { type: "string", description: "Scope filter (optional)" },
+      },
+      required: ["primaryId", "secondaryId"],
+    },
+  },
+  {
+    name: "memory_history",
+    description:
+      "Trace the version history of a memory through its supersede/merge chain. Shows how a memory evolved over time.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        memoryId: { type: "string", description: "ID of any memory in the chain (full UUID or 8+ char prefix)" },
+        direction: {
+          type: "string",
+          enum: ["forward", "backward", "both"],
+          description: 'Traversal direction (default: "both")',
+        },
+        scope: { type: "string", description: "Scope filter (optional)" },
       },
       required: ["memoryId"],
     },
@@ -527,6 +567,229 @@ async function handleMemoryUpdate(ctx: ServerContext, params: Record<string, unk
   );
 }
 
+// ---------------------------------------------------------------------------
+// memory_merge handler
+// ---------------------------------------------------------------------------
+
+async function handleMemoryMerge(ctx: ServerContext, params: Record<string, unknown>) {
+  const primaryId = String(params.primaryId || "");
+  const secondaryId = String(params.secondaryId || "");
+  const mergedTextParam = params.mergedText as string | undefined;
+  const importanceParam = params.importance !== undefined ? Number(params.importance) : undefined;
+
+  if (!primaryId || !secondaryId) return textResult("Both primaryId and secondaryId are required.");
+  if (primaryId === secondaryId) return textResult("Cannot merge a memory with itself.");
+
+  const scopeFilter = ctx.scopeManager.getAccessibleScopes("main");
+  if (params.scope) {
+    const s = String(params.scope);
+    if (!ctx.scopeManager.isAccessible(s, "main")) return textResult(`Access denied to scope: ${s}`);
+  }
+
+  const primary = await ctx.store.getById(primaryId, scopeFilter);
+  if (!primary) return textResult(`Primary memory ${primaryId.slice(0, 8)}... not found or access denied.`);
+
+  const secondary = await ctx.store.getById(secondaryId, scopeFilter);
+  if (!secondary) return textResult(`Secondary memory ${secondaryId.slice(0, 8)}... not found or access denied.`);
+
+  // Check neither is already invalidated
+  const primaryMeta = parseSmartMetadata(primary.metadata, primary);
+  const secondaryMeta = parseSmartMetadata(secondary.metadata, secondary);
+
+  if (primaryMeta.invalidated_at)
+    return textResult(`Primary memory ${primaryId.slice(0, 8)}... is already superseded/invalidated.`);
+  if (secondaryMeta.invalidated_at)
+    return textResult(`Secondary memory ${secondaryId.slice(0, 8)}... is already superseded/invalidated.`);
+
+  // Build merged text
+  const mergedText = mergedTextParam || `${primary.text}\n---\n${secondary.text}`;
+  if (isNoise(mergedText)) return textResult("Skipped: merged text detected as noise.");
+
+  // Re-embed
+  const newVector = await ctx.embedder.embedPassage(mergedText);
+
+  // Choose best metadata
+  const now = Date.now();
+  const mergedImportance =
+    importanceParam !== undefined ? clamp01(importanceParam, 0.7) : Math.max(primary.importance, secondary.importance);
+  const mergedCategory = primary.category; // primary wins
+  const higherTier = tierRank(primaryMeta.tier) >= tierRank(secondaryMeta.tier) ? primaryMeta.tier : secondaryMeta.tier;
+  const totalAccess = (primaryMeta.access_count || 0) + (secondaryMeta.access_count || 0);
+
+  const newMeta = buildSmartMetadata(
+    { text: mergedText, category: mergedCategory },
+    {
+      l0_abstract: mergedText.slice(0, 200),
+      l1_overview: primaryMeta.l1_overview,
+      l2_content: mergedText,
+      memory_category: mergedCategory as any,
+      tier: higherTier,
+      access_count: totalAccess,
+      confidence: mergedImportance,
+      valid_from: now,
+      relations: [
+        { type: "merged_from" as any, targetId: primary.id },
+        { type: "merged_from" as any, targetId: secondary.id },
+      ],
+    }
+  );
+
+  // Create new merged memory
+  const newEntry = await ctx.store.store({
+    text: mergedText,
+    vector: newVector,
+    category: mergedCategory,
+    scope: primary.scope,
+    importance: mergedImportance,
+    metadata: stringifySmartMetadata(newMeta),
+  });
+
+  // Invalidate both originals
+  const invalidate = async (id: string, meta: ReturnType<typeof parseSmartMetadata>) => {
+    try {
+      const invalidatedMeta = buildSmartMetadata(
+        { text: "", category: meta.memory_category },
+        {
+          ...meta,
+          invalidated_at: now,
+          superseded_by: newEntry.id,
+          relations: appendRelation(meta.relations, { type: "superseded_by", targetId: newEntry.id }),
+        }
+      );
+      await ctx.store.update(id, { metadata: stringifySmartMetadata(invalidatedMeta) }, scopeFilter);
+    } catch {
+      /* new record is source of truth */
+    }
+  };
+
+  await Promise.all([invalidate(primary.id, primaryMeta), invalidate(secondary.id, secondaryMeta)]);
+
+  return textResult(
+    `Merged ${primary.id.slice(0, 8)}... + ${secondary.id.slice(0, 8)}... → ${newEntry.id.slice(0, 8)}...\n` +
+      `Text: "${mergedText.slice(0, 100)}${mergedText.length > 100 ? "..." : ""}"`
+  );
+}
+
+function tierRank(tier: string): number {
+  switch (tier) {
+    case "core":
+      return 3;
+    case "working":
+      return 2;
+    case "peripheral":
+      return 1;
+    default:
+      return 2;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// memory_history handler
+// ---------------------------------------------------------------------------
+
+async function handleMemoryHistory(ctx: ServerContext, params: Record<string, unknown>) {
+  const memoryId = String(params.memoryId || "");
+  const direction = (params.direction as string) || "both";
+
+  if (!memoryId) return textResult("memoryId is required.");
+
+  const scopeFilter = ctx.scopeManager.getAccessibleScopes("main");
+  if (params.scope) {
+    const s = String(params.scope);
+    if (!ctx.scopeManager.isAccessible(s, "main")) return textResult(`Access denied to scope: ${s}`);
+  }
+
+  const startMemory = await ctx.store.getById(memoryId, scopeFilter);
+  if (!startMemory) return textResult(`Memory ${memoryId.slice(0, 8)}... not found or access denied.`);
+
+  interface ChainNode {
+    id: string;
+    text: string;
+    timestamp: number;
+    active: boolean;
+    tier: string;
+    importance: number;
+    category: string;
+    relations: string[];
+  }
+
+  const visited = new Set<string>();
+  const chain: ChainNode[] = [];
+  const MAX_DEPTH = 50;
+
+  const toNode = (entry: NonNullable<Awaited<ReturnType<typeof ctx.store.getById>>>): ChainNode => {
+    const meta = parseSmartMetadata(entry.metadata, entry);
+    const rels: string[] = [];
+    if (meta.supersedes) rels.push(`supersedes:${meta.supersedes.slice(0, 8)}`);
+    if (meta.superseded_by) rels.push(`superseded_by:${meta.superseded_by.slice(0, 8)}`);
+    if (meta.relations) {
+      for (const r of meta.relations) {
+        if (r.type === "merged_from") rels.push(`merged_from:${r.targetId.slice(0, 8)}`);
+      }
+    }
+    return {
+      id: entry.id,
+      text: entry.text,
+      timestamp: entry.timestamp,
+      active: !meta.invalidated_at,
+      tier: meta.tier,
+      importance: entry.importance,
+      category: entry.category,
+      relations: rels,
+    };
+  };
+
+  // Backward traversal
+  const backward: ChainNode[] = [];
+  if (direction === "backward" || direction === "both") {
+    let current = startMemory;
+    visited.add(current.id);
+    for (let i = 0; i < MAX_DEPTH; i++) {
+      const meta = parseSmartMetadata(current.metadata, current);
+      if (!meta.supersedes) break;
+      if (visited.has(meta.supersedes)) break;
+      visited.add(meta.supersedes);
+      const prev = await ctx.store.getById(meta.supersedes, scopeFilter);
+      if (!prev) break;
+      backward.unshift(toNode(prev));
+      current = prev;
+    }
+  }
+
+  // Forward traversal
+  const forward: ChainNode[] = [];
+  if (direction === "forward" || direction === "both") {
+    let current = startMemory;
+    if (!visited.has(current.id)) visited.add(current.id);
+    for (let i = 0; i < MAX_DEPTH; i++) {
+      const meta = parseSmartMetadata(current.metadata, current);
+      if (!meta.superseded_by) break;
+      if (visited.has(meta.superseded_by)) break;
+      visited.add(meta.superseded_by);
+      const next = await ctx.store.getById(meta.superseded_by, scopeFilter);
+      if (!next) break;
+      forward.push(toNode(next));
+      current = next;
+    }
+  }
+
+  // Combine: backward + start + forward
+  chain.push(...backward, toNode(startMemory), ...forward);
+
+  if (chain.length === 1) {
+    return textResult(`Memory ${memoryId.slice(0, 8)}... has no version history (standalone).`);
+  }
+
+  const lines = chain.map((node, i) => {
+    const date = new Date(node.timestamp).toISOString().slice(0, 16).replace("T", " ");
+    const status = node.active ? "ACTIVE" : "SUPERSEDED";
+    const relStr = node.relations.length > 0 ? ` (${node.relations.join(", ")})` : "";
+    return `${i + 1}. [${status}] ${node.id.slice(0, 8)}... [${date}] [${node.category}/${node.tier}] imp=${node.importance}\n   "${node.text.slice(0, 100)}${node.text.length > 100 ? "..." : ""}"${relStr}`;
+  });
+
+  return textResult(`Version history (${chain.length} entries, oldest → newest):\n\n${lines.join("\n\n")}`);
+}
+
 async function handleMemoryStats(ctx: ServerContext, params: Record<string, unknown>) {
   const scope = params.scope as string | undefined;
 
@@ -754,8 +1017,10 @@ async function main() {
 
   const decayEngine = createDecayEngine(config.decay);
   const scopeManager = createScopeManager(config.scopes);
+  const tierManager = createTierManager();
 
   const retriever = createRetriever(store, embedder, config.retrieval, { decayEngine });
+  retriever.setTierManager(tierManager);
 
   const ctx: ServerContext = {
     store,
@@ -798,6 +1063,10 @@ async function main() {
           return await handleMemoryForget(ctx, params);
         case "memory_update":
           return await handleMemoryUpdate(ctx, params);
+        case "memory_merge":
+          return await handleMemoryMerge(ctx, params);
+        case "memory_history":
+          return await handleMemoryHistory(ctx, params);
         case "memory_stats":
           return await handleMemoryStats(ctx, params);
         case "memory_list":

@@ -336,6 +336,10 @@ export class MemoryRetriever {
     this.accessTracker = tracker;
   }
 
+  setTierManager(tm: TierManager): void {
+    this.tierManager = tm;
+  }
+
   private filterActiveResults<T extends MemorySearchResult>(results: T[]): T[] {
     return results.filter((result) => isMemoryActiveAt(parseSmartMetadata(result.entry.metadata, result.entry)));
   }

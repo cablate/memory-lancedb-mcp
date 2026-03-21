@@ -88,12 +88,14 @@ This server exposes the following tools to MCP clients:
 
 ### Core Tools
 
-| Tool            | Description                                                                                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `memory_recall` | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time filters (`since`).         |
-| `memory_store`  | Save information to long-term memory with importance scoring and noise filtering. Shows similar existing memories. |
-| `memory_forget` | Delete memories by ID or search query.                                                                             |
-| `memory_update` | Update existing memories. Temporal categories auto-supersede to preserve history.                                  |
+| Tool             | Description                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `memory_recall`  | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time filters (`since`).         |
+| `memory_store`   | Save information to long-term memory with importance scoring and noise filtering. Shows similar existing memories. |
+| `memory_forget`  | Delete memories by ID or search query.                                                                             |
+| `memory_update`  | Update existing memories. Temporal categories auto-supersede to preserve history.                                  |
+| `memory_merge`   | Merge two related memories into one. Invalidates both originals and creates a unified entry.                       |
+| `memory_history` | Trace version history of a memory through its supersede/merge chain.                                               |
 
 ### Management Tools (opt-in)
 
