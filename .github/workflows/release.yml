@@ -34,6 +34,14 @@ jobs:
         env:
           EMBEDDING_API_KEY: test-ci-key
 
+      - run: npm run lint
+      - run: npm run format:check
+
+      - name: Run tests
+        run: npm test
+        env:
+          EMBEDDING_API_KEY: test-ci-key
+
       - name: Sync latest from main
         run: |
           git config user.name "github-actions[bot]"
