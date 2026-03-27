@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.17
+
+- docs: add CODE_OF_CONDUCT.md
+
+
 ## 2.0.16
 
 - docs: add SECURITY.md with vulnerability reporting policy
