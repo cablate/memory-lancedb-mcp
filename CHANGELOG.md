@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.16
+
+- docs: add SECURITY.md with vulnerability reporting policy
+
+
 ## 2.0.15
 
 - build: compile to dist/ for npm, remove jiti runtime transpilation
