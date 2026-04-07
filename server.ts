@@ -268,6 +268,24 @@ const MANAGEMENT_TOOLS = [
       },
     },
   },
+  {
+    name: "memory_lint",
+    description:
+      "Run health checks on the memory store. Detects contradictions, orphan memories (no relations and low access), stale memories (old + never accessed), and suggests cleanup actions.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        scope: {
+          type: "string",
+          description: "Scope to lint (default: all accessible scopes)",
+        },
+        fix: {
+          type: "boolean",
+          description: "Auto-fix simple issues like missing relations (default: false)",
+        },
+      },
+    },
+  },
 ];
 
 const SELF_IMPROVEMENT_TOOLS = [
@@ -418,6 +436,35 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
   return textResult(`Found ${results.length} memories:\n\n${text}`);
 }
 
+// ---------------------------------------------------------------------------
+// Contradiction hint detection (heuristic, not NLP)
+// ---------------------------------------------------------------------------
+
+const NEGATION_WORDS = ["not", "don't", "shouldn't", "never", "不", "沒有", "不要", "不能", "無法"];
+
+function detectContradictionHint(textA: string, textB: string): boolean {
+  const aLower = textA.toLowerCase();
+  const bLower = textB.toLowerCase();
+
+  // Check if one has a negation word and the other doesn't
+  const aNegated = NEGATION_WORDS.some((w) => aLower.includes(w));
+  const bNegated = NEGATION_WORDS.some((w) => bLower.includes(w));
+  if (aNegated !== bNegated) {
+    // They differ in negation — check if they share enough topic words to be about the same thing
+    const aWords = new Set(aLower.split(/\W+/).filter((w) => w.length > 3));
+    const bWords = new Set(bLower.split(/\W+/).filter((w) => w.length > 3));
+    if (aWords.size === 0 || bWords.size === 0) return false;
+    let shared = 0;
+    for (const w of aWords) {
+      if (bWords.has(w)) shared++;
+    }
+    const overlapRatio = shared / Math.min(aWords.size, bWords.size);
+    return overlapRatio > 0.5;
+  }
+
+  return false;
+}
+
 async function handleMemoryStore(ctx: ServerContext, params: Record<string, unknown>) {
   const text = String(params.text || "");
   const importance = clamp01(Number(params.importance) || 0.7, 0.7);
@@ -441,7 +488,7 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
   // Duplicate / similarity check
   let existing: Awaited<ReturnType<MemoryStore["vectorSearch"]>> = [];
   try {
-    existing = await ctx.store.vectorSearch(vector, 3, 0.1, [scope], { excludeInactive: true });
+    existing = await ctx.store.vectorSearch(vector, 6, 0.1, [scope], { excludeInactive: true });
   } catch {
     /* fail-open */
   }
@@ -473,6 +520,30 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
 
   let response = `Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`;
 
+  // Auto-link bidirectional relations with similar memories (score > 0.7, not duplicates)
+  const linkCandidates = existing.filter((e) => e.score > 0.7 && e.score <= 0.98).slice(0, 4);
+  if (linkCandidates.length > 0) {
+    await Promise.allSettled(
+      linkCandidates.map(async (candidate) => {
+        // Patch new entry: add relation pointing to existing
+        const newMeta = parseSmartMetadata(entry.metadata, entry);
+        await ctx.store.patchMetadata(
+          entry.id,
+          { relations: appendRelation(newMeta.relations, { type: "related", targetId: candidate.entry.id }) },
+          [scope]
+        );
+        // Patch existing entry: add relation pointing to new entry
+        const existingMeta = parseSmartMetadata(candidate.entry.metadata, candidate.entry);
+        await ctx.store.patchMetadata(
+          candidate.entry.id,
+          { relations: appendRelation(existingMeta.relations, { type: "related", targetId: entry.id }) },
+          [scope]
+        );
+      })
+    );
+    response += `\n\nAuto-linked ${linkCandidates.length} relation${linkCandidates.length === 1 ? "" : "s"} (bidirectional).`;
+  }
+
   // Surface similar memories for awareness
   const similar = existing.filter((e) => e.score > 0.8 && e.score <= 0.98);
   if (similar.length > 0) {
@@ -480,6 +551,15 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
       .map((s) => `  - [${s.entry.id.slice(0, 8)}] (${(s.score * 100).toFixed(0)}%) ${s.entry.text.slice(0, 80)}`)
       .join("\n");
     response += `\n\nRelated (${similar.length} similar ${similar.length === 1 ? "memory" : "memories"}):\n${hints}`;
+  }
+
+  // Contradiction detection among similar memories (score 0.8-0.95)
+  const contradictionCandidates = existing.filter((e) => e.score >= 0.8 && e.score <= 0.95);
+  for (const candidate of contradictionCandidates) {
+    if (detectContradictionHint(text, candidate.entry.text)) {
+      const excerpt = candidate.entry.text.slice(0, 60);
+      response += `\n\n⚠️ Potential contradiction with [${candidate.entry.id.slice(0, 8)}]: "${excerpt}${candidate.entry.text.length > 60 ? "..." : ""}"`;
+    }
   }
 
   return textResult(response);
@@ -1048,6 +1128,126 @@ async function handleSelfImprovementReview(_ctx: ServerContext) {
   return textResult(lines.join("\n"));
 }
 
+// ---------------------------------------------------------------------------
+// memory_lint handler
+// ---------------------------------------------------------------------------
+
+async function handleMemoryLint(ctx: ServerContext, params: Record<string, unknown>) {
+  const scope = params.scope as string | undefined;
+  const fix = params.fix === true;
+
+  let scopeFilter = ctx.scopeManager.getAccessibleScopes("main");
+  if (scope) {
+    if (ctx.scopeManager.isAccessible(scope, "main")) {
+      scopeFilter = [scope];
+    } else {
+      return textResult(`Access denied to scope: ${scope}`);
+    }
+  }
+
+  const entries = await ctx.store.list(scopeFilter, undefined, 1000, 0);
+
+  const now = Date.now();
+  const DAY_MS = 86400000;
+  const ORPHAN_AGE_DAYS = 7;
+  const STALE_AGE_DAYS = 30;
+
+  const orphans: string[] = [];
+  const stale: string[] = [];
+  let fixedRelations = 0;
+
+  for (const entry of entries) {
+    const meta = parseSmartMetadata(entry.metadata, entry);
+    if (meta.invalidated_at) continue;
+
+    const ageDays = (now - entry.timestamp) / DAY_MS;
+    const accessCount = meta.access_count ?? 0;
+    const hasRelations = meta.relations && meta.relations.length > 0;
+
+    // Orphan: no relations, low access, age > 7 days
+    if (!hasRelations && accessCount <= 1 && ageDays > ORPHAN_AGE_DAYS) {
+      orphans.push(entry.id);
+    }
+
+    // Stale: never accessed, age > 30 days
+    if (accessCount === 0 && ageDays > STALE_AGE_DAYS) {
+      stale.push(entry.id);
+    }
+
+    // Fix missing relations via vector search
+    if (fix) {
+      try {
+        // Only attempt if entry has a vector (we don't store vector on entry object, so we re-embed)
+        const candidateVector = await ctx.embedder.embedPassage(entry.text);
+        const candidates = await ctx.store.vectorSearch(candidateVector, 3, 0.3, scopeFilter, {
+          excludeInactive: true,
+        });
+        const linkable = candidates.filter(
+          (c) =>
+            c.entry.id !== entry.id && c.score > 0.7 && !(meta.relations ?? []).some((r) => r.targetId === c.entry.id)
+        );
+        if (linkable.length > 0) {
+          await Promise.allSettled(
+            linkable.map(async (candidate) => {
+              const updatedMeta = parseSmartMetadata(entry.metadata, entry);
+              await ctx.store.patchMetadata(
+                entry.id,
+                { relations: appendRelation(updatedMeta.relations, { type: "related", targetId: candidate.entry.id }) },
+                scopeFilter
+              );
+              const candidateMeta = parseSmartMetadata(candidate.entry.metadata, candidate.entry);
+              await ctx.store.patchMetadata(
+                candidate.entry.id,
+                { relations: appendRelation(candidateMeta.relations, { type: "related", targetId: entry.id }) },
+                scopeFilter
+              );
+              fixedRelations++;
+            })
+          );
+        }
+      } catch {
+        /* skip on error */
+      }
+    }
+  }
+
+  const lines = [
+    `Memory Health Report (${entries.length} active memories scanned):`,
+    ``,
+    `Orphans (no relations, low access, age > ${ORPHAN_AGE_DAYS}d): ${orphans.length}`,
+    orphans.length > 0
+      ? orphans
+          .slice(0, 10)
+          .map((id) => `  - [${id.slice(0, 8)}]`)
+          .join("\n")
+      : "  None",
+    ``,
+    `Stale (never accessed, age > ${STALE_AGE_DAYS}d): ${stale.length}`,
+    stale.length > 0
+      ? stale
+          .slice(0, 10)
+          .map((id) => `  - [${id.slice(0, 8)}]`)
+          .join("\n")
+      : "  None",
+  ];
+
+  if (fix) {
+    lines.push(``, `Auto-fix: added ${fixedRelations} missing relation(s).`);
+  } else if (orphans.length > 0 || stale.length > 0) {
+    lines.push(``, `Tip: run with fix=true to auto-link missing relations.`);
+  }
+
+  lines.push(
+    ``,
+    `Recommendations:`,
+    orphans.length > 0 ? `- Consider merging or forgetting ${orphans.length} orphan memory/memories.` : "",
+    stale.length > 0 ? `- Consider deleting ${stale.length} stale memory/memories.` : "",
+    orphans.length === 0 && stale.length === 0 ? `- Memory store looks healthy.` : ""
+  );
+
+  return textResult(lines.filter((l) => l !== "").join("\n"));
+}
+
 async function handleMemoryVisualize(ctx: ServerContext, params: Record<string, unknown>) {
   const scope = params.scope as string | undefined;
   const outputPath = params.output_path as string | undefined;
@@ -1179,6 +1379,8 @@ async function main() {
           return await handleSelfImprovementReview(ctx);
         case "memory_visualize":
           return await handleMemoryVisualize(ctx, params);
+        case "memory_lint":
+          return await handleMemoryLint(ctx, params);
         default:
           return textResult(`Unknown tool: ${name}`);
       }

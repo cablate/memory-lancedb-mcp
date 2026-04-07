@@ -87,7 +87,7 @@ This server exposes the following tools to MCP clients:
 | Tool             | Description                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `memory_recall`  | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time filters (`since`).         |
-| `memory_store`   | Save information to long-term memory with importance scoring and noise filtering. Shows similar existing memories. |
+| `memory_store`   | Save information to long-term memory with importance scoring and noise filtering. Auto-links related memories and detects contradictions. |
 | `memory_forget`  | Delete memories by ID or search query.                                                                             |
 | `memory_update`  | Update existing memories. Temporal categories auto-supersede to preserve history.                                  |
 | `memory_merge`   | Merge two related memories into one. Invalidates both originals and creates a unified entry.                       |
@@ -95,10 +95,11 @@ This server exposes the following tools to MCP clients:
 
 ### Management Tools (opt-in)
 
-| Tool           | Description                                        |
-| -------------- | -------------------------------------------------- |
-| `memory_stats` | Get memory usage statistics by scope and category. |
-| `memory_list`  | List recent memories with optional filtering.      |
+| Tool           | Description                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| `memory_stats` | Get memory usage statistics by scope and category.                                               |
+| `memory_list`  | List recent memories with optional filtering.                                                    |
+| `memory_lint`  | Run health checks: detect orphan memories, stale entries, and auto-fix missing relations.        |
 
 Enable with `"enableManagementTools": true` in config.
 
@@ -300,6 +301,12 @@ Works with **any OpenAI-compatible embedding API**:
 - L0/L1/L2 layered storage for progressive detail retrieval
 - Temporal versioning with supersede chains
 - Fact key deduplication
+
+### Auto-Linking & Contradiction Detection
+
+- **Auto-Link**: `memory_store` automatically creates bidirectional relations with similar memories (cosine > 0.7)
+- **Contradiction Hints**: Detects potential contradictions between new and existing memories at store time
+- **Health Checks**: `memory_lint` finds orphan memories, stale entries, and auto-fixes missing relations
 
 ---
 

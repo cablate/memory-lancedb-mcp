@@ -87,7 +87,7 @@ npm install -g @cablate/memory-lancedb-mcp
 | 工具             | 說明                                                                       |
 | ---------------- | -------------------------------------------------------------------------- |
 | `memory_recall`  | 混合檢索搜尋記憶（向量 + 關鍵字），支援 scope/category/時間過濾（`since`） |
-| `memory_store`   | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾，顯示相似記憶提示             |
+| `memory_store`   | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾。自動連結相關記憶並偵測矛盾   |
 | `memory_forget`  | 依 ID 或搜尋查詢刪除記憶                                                   |
 | `memory_update`  | 更新現有記憶。時間類 category 自動建立新版本以保留歷史                     |
 | `memory_merge`   | 合併兩條相關記憶為一條。使兩條原始記憶失效並建立統一版本                   |
@@ -97,8 +97,9 @@ npm install -g @cablate/memory-lancedb-mcp
 
 | 工具           | 說明                              |
 | -------------- | --------------------------------- |
-| `memory_stats` | 依 scope 與 category 統計記憶用量 |
-| `memory_list`  | 列出近期記憶，支援過濾            |
+| `memory_stats` | 依 scope 與 category 統計記憶用量                                       |
+| `memory_list`  | 列出近期記憶，支援過濾                                                  |
+| `memory_lint`  | 健康檢查：偵測孤兒記憶、過期條目，自動修復缺失的關聯連結                |
 
 設定：`"enableManagementTools": true`
 
@@ -283,6 +284,12 @@ Query → BM25 FTS ─────┘
 - L0/L1/L2 分層儲存，漸進式細節檢索
 - 時間版本控制與取代鏈
 - Fact key 去重
+
+### 自動連結與矛盾偵測
+
+- **自動連結**：`memory_store` 自動為相似記憶建立雙向關聯（cosine > 0.7）
+- **矛盾提示**：儲存時偵測新記憶與現有記憶之間的潛在矛盾
+- **健康檢查**：`memory_lint` 掃描孤兒記憶、過期條目，並自動修復缺失關聯
 
 ---
 
