@@ -470,7 +470,6 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
 
   // Generate maintenance hints from recall results
   const hints: string[] = [];
-  const now = Date.now();
   const dormantThreshold = now - DORMANT_DAYS * 86400000;
 
   // Detect near-duplicate pairs among results
