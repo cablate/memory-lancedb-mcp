@@ -325,8 +325,7 @@ const VISUALIZATION_TOOLS = [
       properties: {
         output_path: {
           type: "string",
-          description:
-            "File path to write the HTML output. If omitted, returns the HTML content directly.",
+          description: "File path to write the HTML output. If omitted, returns the HTML content directly.",
         },
         scope: {
           type: "string",
@@ -334,13 +333,11 @@ const VISUALIZATION_TOOLS = [
         },
         threshold: {
           type: "number",
-          description:
-            "Cosine similarity threshold for drawing edges between memories (0.0-1.0, default: 0.65)",
+          description: "Cosine similarity threshold for drawing edges between memories (0.0-1.0, default: 0.65)",
         },
         max_neighbors: {
           type: "number",
-          description:
-            "Maximum edges per node (default: 4)",
+          description: "Maximum edges per node (default: 4)",
         },
       },
     },
@@ -1075,7 +1072,7 @@ async function handleMemoryVisualize(ctx: ServerContext, params: Record<string, 
   if (outputPath) {
     await writeFile(outputPath, html, "utf-8");
     return textResult(
-      `Memory Explorer written to ${outputPath} (${(html.length / 1024).toFixed(0)} KB). Open in a browser to explore.`,
+      `Memory Explorer written to ${outputPath} (${(html.length / 1024).toFixed(0)} KB). Open in a browser to explore.`
     );
   }
 

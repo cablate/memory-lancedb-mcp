@@ -667,17 +667,13 @@ export class MemoryStore {
    * List all memories with their vectors for visualization.
    * Returns raw rows including Arrow Vector objects.
    */
-  async listAllRaw(
-    scopeFilter?: string[],
-  ): Promise<Array<Record<string, unknown>>> {
+  async listAllRaw(scopeFilter?: string[]): Promise<Array<Record<string, unknown>>> {
     await this.ensureInitialized();
 
     let query = this.table!.query();
 
     if (scopeFilter && scopeFilter.length > 0) {
-      const scopeConditions = scopeFilter
-        .map((scope) => `scope = '${escapeSqlLiteral(scope)}'`)
-        .join(" OR ");
+      const scopeConditions = scopeFilter.map((scope) => `scope = '${escapeSqlLiteral(scope)}'`).join(" OR ");
       query = query.where(`((${scopeConditions}) OR scope IS NULL)`);
     }
 

@@ -80,16 +80,9 @@ function cosineSim(a: number[], b: number[]): number {
 // Label Propagation clustering
 // ---------------------------------------------------------------------------
 
-function labelPropagation(
-  nodeCount: number,
-  edges: VisEdge[],
-  maxIter = 30,
-): number[] {
+function labelPropagation(nodeCount: number, edges: VisEdge[], maxIter = 30): number[] {
   const labels = Array.from({ length: nodeCount }, (_, i) => i);
-  const adj: Array<Array<{ to: number; w: number }>> = Array.from(
-    { length: nodeCount },
-    () => [],
-  );
+  const adj: Array<Array<{ to: number; w: number }>> = Array.from({ length: nodeCount }, () => []);
   edges.forEach((e) => {
     adj[e.from].push({ to: e.to, w: e.sim });
     adj[e.to].push({ to: e.from, w: e.sim });
@@ -108,11 +101,7 @@ function labelPropagation(
       adj[i].forEach((e) => {
         votes[labels[e.to]] = (votes[labels[e.to]] || 0) + e.w;
       });
-      const best = parseInt(
-        Object.entries(votes).sort(
-          (a, b) => (b[1] as number) - (a[1] as number),
-        )[0][0],
-      );
+      const best = parseInt(Object.entries(votes).sort((a, b) => (b[1] as number) - (a[1] as number))[0][0]);
       if (best !== labels[i]) {
         labels[i] = best;
         changed = true;
@@ -132,10 +121,7 @@ function labelPropagation(
 // Cluster info generation
 // ---------------------------------------------------------------------------
 
-function buildClusterInfo(
-  memories: VisMemory[],
-  clusters: number[],
-): Record<string, ClusterInfo> {
+function buildClusterInfo(memories: VisMemory[], clusters: number[]): Record<string, ClusterInfo> {
   const info: Record<string, ClusterInfo> = {};
   memories.forEach((m, i) => {
     const c = clusters[i];
@@ -166,10 +152,7 @@ function buildClusterInfo(
 // Main: generate visualization HTML
 // ---------------------------------------------------------------------------
 
-export async function generateVisualization(
-  store: MemoryStore,
-  options: VisualizeOptions = {},
-): Promise<string> {
+export async function generateVisualization(store: MemoryStore, options: VisualizeOptions = {}): Promise<string> {
   const threshold = options.threshold ?? 0.65;
   const maxNeighbors = options.maxNeighbors ?? 4;
 
@@ -199,10 +182,7 @@ export async function generateVisualization(
     let meta: Record<string, unknown> = {};
     if (row.metadata) {
       try {
-        meta =
-          typeof row.metadata === "string"
-            ? JSON.parse(row.metadata)
-            : (row.metadata as Record<string, unknown>);
+        meta = typeof row.metadata === "string" ? JSON.parse(row.metadata) : (row.metadata as Record<string, unknown>);
       } catch {
         /* ignore parse errors */
       }
@@ -221,9 +201,7 @@ export async function generateVisualization(
       importance: Number(row.importance) || 0.5,
       timestamp: Number(row.timestamp) || Date.now(),
       tier: (meta.tier as string) || "working",
-      access_count: Number(
-        (meta.access_count ?? meta.accessCount ?? 0) as number,
-      ),
+      access_count: Number((meta.access_count ?? meta.accessCount ?? 0) as number),
       confidence: Number((meta.confidence ?? 0.5) as number),
       memory_category: (meta.memory_category as string) || "events",
     });
