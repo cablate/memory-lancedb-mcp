@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.18
+
+- style: format visualize/store/server with project prettier config
+- feat: add memory_visualize MCP tool for interactive memory graph exploration
+
+
 ## 2.0.17
 
 - docs: add CODE_OF_CONDUCT.md
