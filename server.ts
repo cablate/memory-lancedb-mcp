@@ -40,6 +40,7 @@ import {
 import { appendSelfImprovementEntry, ensureSelfImprovementLearningFiles } from "./src/self-improvement-files.js";
 import { join } from "node:path";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { generateVisualization } from "./src/visualize.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -307,6 +308,41 @@ const SELF_IMPROVEMENT_TOOLS = [
     inputSchema: {
       type: "object" as const,
       properties: {},
+    },
+  },
+];
+
+const VISUALIZATION_TOOLS = [
+  {
+    name: "memory_visualize",
+    description:
+      "Generate an interactive HTML visualization of the memory graph. " +
+      "Shows semantic clusters, similarity edges, duplicate detection, " +
+      "importance distribution, and growth timeline. Returns the HTML as text " +
+      "or writes it to a file path.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        output_path: {
+          type: "string",
+          description:
+            "File path to write the HTML output. If omitted, returns the HTML content directly.",
+        },
+        scope: {
+          type: "string",
+          description: "Scope to visualize (default: all accessible scopes)",
+        },
+        threshold: {
+          type: "number",
+          description:
+            "Cosine similarity threshold for drawing edges between memories (0.0-1.0, default: 0.65)",
+        },
+        max_neighbors: {
+          type: "number",
+          description:
+            "Maximum edges per node (default: 4)",
+        },
+      },
     },
   },
 ];
@@ -1015,6 +1051,39 @@ async function handleSelfImprovementReview(_ctx: ServerContext) {
   return textResult(lines.join("\n"));
 }
 
+async function handleMemoryVisualize(ctx: ServerContext, params: Record<string, unknown>) {
+  const scope = params.scope as string | undefined;
+  const outputPath = params.output_path as string | undefined;
+  const threshold = params.threshold as number | undefined;
+  const maxNeighbors = params.max_neighbors as number | undefined;
+
+  let scopeFilter: string[] | undefined;
+  if (scope) {
+    if (ctx.scopeManager.isAccessible(scope, "main")) {
+      scopeFilter = [scope];
+    } else {
+      return textResult(`Access denied to scope: ${scope}`);
+    }
+  }
+
+  const html = await generateVisualization(ctx.store, {
+    threshold,
+    maxNeighbors,
+    scopeFilter,
+  });
+
+  if (outputPath) {
+    await writeFile(outputPath, html, "utf-8");
+    return textResult(
+      `Memory Explorer written to ${outputPath} (${(html.length / 1024).toFixed(0)} KB). Open in a browser to explore.`,
+    );
+  }
+
+  return {
+    content: [{ type: "text" as const, text: html }],
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -1070,6 +1139,9 @@ async function main() {
   if (config.enableSelfImprovementTools) {
     allTools.push(...SELF_IMPROVEMENT_TOOLS);
   }
+  if (config.enableVisualizationTools !== false) {
+    allTools.push(...VISUALIZATION_TOOLS);
+  }
 
   // Create MCP server
   const server = new Server({ name: "memory-lancedb-mcp", version: "2.0.0" }, { capabilities: { tools: {} } });
@@ -1108,6 +1180,8 @@ async function main() {
           return await handleSelfImprovementExtractSkill(ctx, params);
         case "self_improvement_review":
           return await handleSelfImprovementReview(ctx);
+        case "memory_visualize":
+          return await handleMemoryVisualize(ctx, params);
         default:
           return textResult(`Unknown tool: ${name}`);
       }

@@ -112,6 +112,22 @@ Enable with `"enableManagementTools": true` in config.
 
 Enable with `"enableSelfImprovementTools": true` in config or `MEMORY_ENABLE_SELF_IMPROVEMENT=true` env var.
 
+### Visualization Tools (on by default)
+
+| Tool | Description |
+|------|-------------|
+| `memory_visualize` | Generate an interactive HTML visualization of the memory graph. Shows semantic clusters, similarity edges, duplicate detection, importance distribution, and growth timeline. |
+
+The visualization computes cosine similarity edges between all memories, runs Label Propagation clustering, and detects near-duplicate pairs (similarity >= 0.90). The output is a self-contained HTML file that can be opened in any browser.
+
+**Parameters:**
+- `output_path` — File path to write HTML. If omitted, returns HTML content directly.
+- `scope` — Scope to visualize (default: all accessible scopes).
+- `threshold` — Cosine similarity threshold for edges (0.0–1.0, default: 0.65).
+- `max_neighbors` — Maximum edges per node (default: 4).
+
+Disable with `"enableVisualizationTools": false` in config.
+
 ---
 
 ## Architecture
@@ -197,6 +213,7 @@ Query → BM25 FTS ─────┘
   },
   "enableManagementTools": true,
   "enableSelfImprovementTools": false,
+  "enableVisualizationTools": true,
   "scopes": {
     "default": "global",
     "definitions": {

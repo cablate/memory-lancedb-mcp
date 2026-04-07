@@ -75,6 +75,7 @@ export interface McpConfig {
   };
   enableManagementTools?: boolean;
   enableSelfImprovementTools?: boolean;
+  enableVisualizationTools?: boolean;
   llm?: {
     apiKey?: string;
     model?: string;
@@ -169,6 +170,7 @@ export function loadConfig(): McpConfig {
     enableManagementTools: raw.enableManagementTools === true || process.env.MEMORY_ENABLE_MANAGEMENT === "true",
     enableSelfImprovementTools:
       raw.enableSelfImprovementTools === true || process.env.MEMORY_ENABLE_SELF_IMPROVEMENT === "true",
+    enableVisualizationTools: raw.enableVisualizationTools !== false,
     llm: typeof raw.llm === "object" && raw.llm !== null ? (raw.llm as any) : undefined,
   };
 }

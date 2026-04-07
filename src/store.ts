@@ -663,6 +663,27 @@ export class MemoryStore {
       .slice(offset, offset + limit);
   }
 
+  /**
+   * List all memories with their vectors for visualization.
+   * Returns raw rows including Arrow Vector objects.
+   */
+  async listAllRaw(
+    scopeFilter?: string[],
+  ): Promise<Array<Record<string, unknown>>> {
+    await this.ensureInitialized();
+
+    let query = this.table!.query();
+
+    if (scopeFilter && scopeFilter.length > 0) {
+      const scopeConditions = scopeFilter
+        .map((scope) => `scope = '${escapeSqlLiteral(scope)}'`)
+        .join(" OR ");
+      query = query.where(`((${scopeConditions}) OR scope IS NULL)`);
+    }
+
+    return await query.toArray();
+  }
+
   async stats(scopeFilter?: string[]): Promise<{
     totalCount: number;
     scopeCounts: Record<string, number>;
