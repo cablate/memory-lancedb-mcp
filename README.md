@@ -16,6 +16,8 @@
 
 ## Why memory-lancedb-mcp?
 
+[![SafeSkill 93/100](https://img.shields.io/badge/SafeSkill-93%2F100_Verified%20Safe-brightgreen)](https://safeskill.dev/scan/cablate-memory-lancedb-mcp)
+
 Most AI agents forget everything the moment you start a new session. This MCP server gives any MCP-compatible client **persistent, intelligent long-term memory** — without manual management.
 
 |                            | What you get                                                                   |
