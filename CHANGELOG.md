@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.22
+
+- docs: sync README_ZH.md with latest features
+
+
 ## 2.0.21
 
 - fix: remove duplicate `now` declaration in handleMemoryRecall
