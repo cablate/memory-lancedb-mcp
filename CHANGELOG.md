@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.19
+
+- fix: use const for DATA in visualization template
+
+
 ## 2.0.18
 
 - style: format visualize/store/server with project prettier config
