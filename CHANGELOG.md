@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.21
+
+- fix: remove duplicate `now` declaration in handleMemoryRecall
+- feat: add recall hints and topic labels
+
+
 ## 2.0.20
 
 - feat: auto-link relations, contradiction detection, and memory_lint tool
