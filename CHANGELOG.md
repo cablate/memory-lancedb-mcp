@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.20
+
+- feat: auto-link relations, contradiction detection, and memory_lint tool
+
+
 ## 2.0.19
 
 - fix: use const for DATA in visualization template
