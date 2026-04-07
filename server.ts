@@ -48,6 +48,21 @@ import { generateVisualization } from "./src/visualize.js";
 
 const MEMORY_CATEGORIES = ["preference", "fact", "decision", "entity", "skill", "lesson", "other"] as const;
 
+function cosineSim(a: number[], b: number[]): number {
+  let dot = 0,
+    na = 0,
+    nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+const DORMANT_DAYS = 30;
+
 function clamp01(v: number, fallback: number): number {
   const n = Number.isFinite(v) ? v : fallback;
   return Math.max(0, Math.min(1, n));
@@ -142,6 +157,11 @@ const CORE_TOOLS = [
           description:
             'Time range filter. Use shorthand like "3d" (3 days), "1w" (1 week), "2h" (2 hours), or ISO timestamp.',
         },
+        topic: {
+          type: "string",
+          description:
+            'Filter by topic label (e.g. "remotion", "invoice"). Only returns memories tagged with this topic.',
+        },
       },
       required: ["query"],
     },
@@ -157,6 +177,11 @@ const CORE_TOOLS = [
         importance: { type: "number", description: "Importance score 0-1 (default: 0.7)" },
         category: { type: "string", enum: MEMORY_CATEGORIES, description: "Memory category" },
         scope: { type: "string", description: "Memory scope (optional, defaults to default scope)" },
+        topic: {
+          type: "string",
+          description:
+            'Topic label for grouping related memories (e.g. "remotion", "invoice"). Auto-inferred from similar memories if omitted.',
+        },
         lesson_trigger: {
           type: "string",
           description: 'For category="lesson": what situation triggers this lesson (e.g. "when editing CSS layout")',
@@ -372,6 +397,7 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
   const scope = params.scope as string | undefined;
   const category = params.category as string | undefined;
   const sinceTs = parseSince(params.since as string | undefined);
+  const topicFilter = params.topic as string | undefined;
 
   let scopeFilter = ctx.scopeManager.getAccessibleScopes("main");
   if (scope) {
@@ -392,6 +418,15 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
 
   if (sinceTs) {
     results = results.filter((r) => r.entry.timestamp >= sinceTs);
+  }
+
+  if (topicFilter) {
+    const normalizedTopic = topicFilter.toLowerCase().trim();
+    results = results.filter((r) => {
+      const meta = parseSmartMetadata(r.entry.metadata, r.entry);
+      const memTopic = (meta as Record<string, unknown>).topic as string | undefined;
+      return memTopic && memTopic.toLowerCase().trim() === normalizedTopic;
+    });
   }
 
   results = results.slice(0, limit);
@@ -433,7 +468,52 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     })
     .join("\n");
 
-  return textResult(`Found ${results.length} memories:\n\n${text}`);
+  // Generate maintenance hints from recall results
+  const hints: string[] = [];
+  const now = Date.now();
+  const dormantThreshold = now - DORMANT_DAYS * 86400000;
+
+  // Detect near-duplicate pairs among results
+  for (let i = 0; i < results.length; i++) {
+    const vi = results[i].entry.vector;
+    if (!vi?.length) continue;
+    for (let j = i + 1; j < results.length; j++) {
+      const vj = results[j].entry.vector;
+      if (!vj?.length) continue;
+      const sim = cosineSim(vi, vj);
+      if (sim > 0.9) {
+        hints.push(
+          `#${i + 1} and #${j + 1} are very similar (${(sim * 100).toFixed(0)}%). Consider \`memory_merge\` if redundant.`
+        );
+      }
+    }
+  }
+
+  // Detect dormant memories
+  for (let i = 0; i < results.length; i++) {
+    const meta = parseSmartMetadata(results[i].entry.metadata, results[i].entry);
+    const lastAccess = meta.last_accessed_at || results[i].entry.timestamp;
+    if (lastAccess < dormantThreshold && meta.access_count <= 1) {
+      const days = Math.floor((now - lastAccess) / 86400000);
+      hints.push(`#${i + 1} has not been accessed in ${days} days. Verify if still relevant, or \`memory_forget\`.`);
+    }
+  }
+
+  // Detect contradictions among results
+  for (let i = 0; i < results.length; i++) {
+    for (let j = i + 1; j < results.length; j++) {
+      if (detectContradictionHint(results[i].entry.text, results[j].entry.text)) {
+        hints.push(`#${i + 1} and #${j + 1} may conflict. Consider \`memory_update\` to resolve.`);
+      }
+    }
+  }
+
+  let response = `Found ${results.length} memories:\n\n${text}`;
+  if (hints.length > 0) {
+    response += "\n\n" + hints.map((h) => `💡 ${h}`).join("\n");
+  }
+
+  return textResult(response);
 }
 
 // ---------------------------------------------------------------------------
@@ -497,28 +577,51 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
     return textResult(`Similar memory already exists: "${existing[0].entry.text}"`);
   }
 
+  // Resolve topic: explicit param > inherit from similar memories > undefined
+  let topic = params.topic as string | undefined;
+  if (!topic && existing.length > 0) {
+    const topicCounts: Record<string, number> = {};
+    for (const e of existing.filter((e) => e.score > 0.7)) {
+      const eMeta = parseSmartMetadata(e.entry.metadata, e.entry);
+      const eTopic = (eMeta as Record<string, unknown>).topic as string | undefined;
+      if (eTopic) {
+        topicCounts[eTopic] = (topicCounts[eTopic] || 0) + 1;
+      }
+    }
+    const sorted = Object.entries(topicCounts).sort((a, b) => b[1] - a[1]);
+    if (sorted.length > 0) {
+      topic = sorted[0][0];
+    }
+  }
+
+  const smartMeta = buildSmartMetadata(
+    { text, category: category as any, importance },
+    {
+      l0_abstract: text,
+      l1_overview: `- ${text}`,
+      l2_content: text,
+      lesson_trigger: params.lesson_trigger as string | undefined,
+      lesson_rule: params.lesson_rule as string | undefined,
+      lesson_principle: params.lesson_principle as string | undefined,
+    }
+  );
+  if (topic) {
+    (smartMeta as Record<string, unknown>).topic = topic;
+  }
+
   const entry = await ctx.store.store({
     text,
     vector,
     importance,
     category: category as any,
     scope,
-    metadata: stringifySmartMetadata(
-      buildSmartMetadata(
-        { text, category: category as any, importance },
-        {
-          l0_abstract: text,
-          l1_overview: `- ${text}`,
-          l2_content: text,
-          lesson_trigger: params.lesson_trigger as string | undefined,
-          lesson_rule: params.lesson_rule as string | undefined,
-          lesson_principle: params.lesson_principle as string | undefined,
-        }
-      )
-    ),
+    metadata: stringifySmartMetadata(smartMeta),
   });
 
   let response = `Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`;
+  if (topic) {
+    response += ` [topic: ${topic}]`;
+  }
 
   // Auto-link bidirectional relations with similar memories (score > 0.7, not duplicates)
   const linkCandidates = existing.filter((e) => e.score > 0.7 && e.score <= 0.98).slice(0, 4);

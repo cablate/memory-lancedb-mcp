@@ -86,8 +86,8 @@ This server exposes the following tools to MCP clients:
 
 | Tool             | Description                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `memory_recall`  | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time filters (`since`).         |
-| `memory_store`   | Save information to long-term memory with importance scoring and noise filtering. Auto-links related memories and detects contradictions. |
+| `memory_recall`  | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time/topic filters. Returns maintenance hints (duplicates, dormant, contradictions). |
+| `memory_store`   | Save information to long-term memory with importance scoring and noise filtering. Auto-links related memories, detects contradictions, and auto-infers topic labels. |
 | `memory_forget`  | Delete memories by ID or search query.                                                                             |
 | `memory_update`  | Update existing memories. Temporal categories auto-supersede to preserve history.                                  |
 | `memory_merge`   | Merge two related memories into one. Invalidates both originals and creates a unified entry.                       |
@@ -307,6 +307,12 @@ Works with **any OpenAI-compatible embedding API**:
 - **Auto-Link**: `memory_store` automatically creates bidirectional relations with similar memories (cosine > 0.7)
 - **Contradiction Hints**: Detects potential contradictions between new and existing memories at store time
 - **Health Checks**: `memory_lint` finds orphan memories, stale entries, and auto-fixes missing relations
+
+### Topic Labels & Recall Hints
+
+- **Topic Auto-Inference**: `memory_store` infers topic labels from similar memories. Explicit `topic` param overrides.
+- **Topic Filtering**: `memory_recall` accepts a `topic` parameter to retrieve all memories under a specific topic.
+- **Recall Hints**: `memory_recall` appends maintenance hints — near-duplicate pairs, dormant memories, and contradictions among results — so agents can act on issues without separate health checks.
 
 ---
 
