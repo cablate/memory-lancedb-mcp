@@ -86,8 +86,8 @@ npm install -g @cablate/memory-lancedb-mcp
 
 | 工具             | 說明                                                                       |
 | ---------------- | -------------------------------------------------------------------------- |
-| `memory_recall`  | 混合檢索搜尋記憶（向量 + 關鍵字），支援 scope/category/時間過濾（`since`） |
-| `memory_store`   | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾。自動連結相關記憶並偵測矛盾   |
+| `memory_recall`  | 混合檢索搜尋記憶（向量 + 關鍵字），支援 scope/category/時間/topic 過濾。回傳結果附帶維護提示（重複、休眠、矛盾） |
+| `memory_store`   | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾。自動連結相關記憶、偵測矛盾、自動推導 topic 標籤 |
 | `memory_forget`  | 依 ID 或搜尋查詢刪除記憶                                                   |
 | `memory_update`  | 更新現有記憶。時間類 category 自動建立新版本以保留歷史                     |
 | `memory_merge`   | 合併兩條相關記憶為一條。使兩條原始記憶失效並建立統一版本                   |
@@ -112,6 +112,14 @@ npm install -g @cablate/memory-lancedb-mcp
 | `self_improvement_review`        | 彙總治理積壓狀況          |
 
 啟用：`"enableSelfImprovementTools": true` 或環境變數 `MEMORY_ENABLE_SELF_IMPROVEMENT=true`
+
+### 視覺化工具（預設啟用）
+
+| 工具 | 說明 |
+|------|------|
+| `memory_visualize` | 產生互動式記憶圖譜 HTML。包含語意聚類、相似度連線、重複偵測、重要性分布、成長時間軸。 |
+
+設定：`"enableVisualizationTools": false` 可關閉。
 
 ---
 
@@ -198,6 +206,7 @@ Query → BM25 FTS ─────┘
   },
   "enableManagementTools": true,
   "enableSelfImprovementTools": false,
+  "enableVisualizationTools": true,
   "scopes": {
     "default": "global",
     "definitions": {
@@ -290,6 +299,12 @@ Query → BM25 FTS ─────┘
 - **自動連結**：`memory_store` 自動為相似記憶建立雙向關聯（cosine > 0.7）
 - **矛盾提示**：儲存時偵測新記憶與現有記憶之間的潛在矛盾
 - **健康檢查**：`memory_lint` 掃描孤兒記憶、過期條目，並自動修復缺失關聯
+
+### Topic 標籤與 Recall 提示
+
+- **Topic 自動推導**：`memory_store` 從相似記憶推導 topic 標籤。傳入 `topic` 參數可覆蓋自動推導。
+- **Topic 過濾**：`memory_recall` 支援 `topic` 參數，一次撈出特定主題下所有記憶。
+- **Recall 提示**：`memory_recall` 在結果後附加維護提示——近似重複對、休眠記憶、結果間矛盾——讓 Agent 無需額外呼叫即可處理問題。
 
 ---
 
