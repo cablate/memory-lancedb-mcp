@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.25
+
+- feat: batch recall — accept queries array for multi-keyword search
+
+
 ## 2.0.24
 
 - perf: optimize tool response token efficiency
