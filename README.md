@@ -97,21 +97,20 @@ See [config.example.json](config.example.json) for all options.
           store                          recall
             │                              │
    ┌────────▼────────┐           ┌────────▼────────┐
-   │  Noise filter   │           │ Vector + BM25   │
-   │  Embed + Store  │           │ RRF Fusion      │
-   │  Auto-link rels │           │ Cross-Encoder   │
-   │  Detect contra. │           │ Lifecycle Decay  │
-   │  Infer topic    │           │ 1-hop Expansion  │
-   └────────┬────────┘           │ Batch Merge     │
+   │  Filter junk     │           │ Search by meaning │
+   │  Save + embed    │           │   AND keywords    │
+   │  Link related    │           │ Re-rank results   │
+   │  Flag conflicts  │           │ Fade stale ones   │
+   │  Tag topic       │           │ Pull in related   │
+   └────────┬────────┘           │ Merge duplicates  │
             │                    └────────┬────────┘
             ▼                             ▼
    ┌─────────────────────────────────────────────┐
    │          LanceDB (local, zero-config)        │
-   │     Vector ANN + BM25 FTS + Metadata         │
    └─────────────────────────────────────────────┘
 ```
 
-Every `memory_store` writes to LanceDB, auto-links related memories, detects contradictions, and infers topic labels — all without extra API calls. Every `memory_recall` runs hybrid retrieval, expands results through the relation graph, and appends maintenance hints so the agent can self-maintain its knowledge base.
+Every `memory_store` saves to a local database, automatically links related memories, flags contradictions, and assigns topic labels — no extra API calls needed. Every `memory_recall` searches by both meaning and keywords, pulls in related memories the main search might miss, and includes maintenance hints so the agent can keep its own knowledge base clean.
 
 ---
 
@@ -119,31 +118,31 @@ Every `memory_store` writes to LanceDB, auto-links related memories, detects con
 
 ### Retrieval
 
-- **Hybrid search** — Vector (cosine ANN) + BM25 full-text, fused via RRF
-- **Cross-encoder reranking** — 6 providers supported (Jina, TEI, Voyage AI, etc.)
-- **Batch recall** — `queries` array for multi-keyword search in one call; results deduplicated, multi-hit memories ranked higher
-- **Relation-aware expansion** — 1-hop traversal of auto-linked relations surfaces memories vector search alone would miss
-- **Token-efficient output** — XML-tagged responses (`<memories>`, `<hints>`, `<refs>`), compressed IDs, no category/scope noise
+- **Finds the right memory even when you use different words** — searches by meaning and exact keywords simultaneously, then combines the best of both
+- **More precise results, not just surface matches** — an optional second pass re-ranks results by actual relevance (6 providers supported)
+- **Search multiple topics at once** — pass a `queries` array to search several keywords in one call; results are deduplicated and memories that match multiple queries rank higher
+- **Finding A automatically surfaces related B** — when a memory is found, its linked neighbors are pulled in too, even if they use completely different words
+- **Minimal token overhead** — responses use compact XML tags (`<memories>`, `<hints>`, `<refs>`) with short IDs, no category/scope noise
 
 ### Storage
 
-- **Auto-linking** — Bidirectional relations created at store time (cosine > 0.7)
-- **Contradiction detection** — Warns when new memory conflicts with existing ones
-- **Topic inference** — Automatic topic labels from similar memories; explicit `topic` param overrides
-- **Noise filtering** — Rejects greetings, refusals, meta-questions; CJK-aware thresholds
+- **Related memories link themselves** — when you store something new, it automatically creates bidirectional links to similar existing memories
+- **Conflicts get flagged** — if a new memory contradicts an existing one, you get a warning so nothing silently overwrites
+- **Topics assigned automatically** — each memory gets a topic label inferred from its content and neighbors; you can also set it explicitly
+- **Junk gets filtered out** — greetings, refusals, and meta-questions are rejected before they waste storage
 
 ### Lifecycle
 
-- **Weibull decay** — Composite score: recency + access frequency + intrinsic importance
-- **Three-tier promotion** — Peripheral → Working → Core; frequently accessed memories promote faster
-- **Temporal versioning** — Supersede chains preserve history; `memory_history` traces lineage
+- **Frequently used memories stay sharp, stale ones fade** — a decay model balances how recent, how often accessed, and how important each memory is
+- **Memories earn their keep** — three tiers (Peripheral → Working → Core); the more a memory gets used, the faster it promotes
+- **Full version history** — when you update a memory, the old version is preserved in a chain you can trace with `memory_history`
 
 ### Maintenance
 
-- **Recall hints** — Duplicate pairs, dormant memories, contradictions surfaced inline
-- **`memory_lint`** — Health checks: orphan detection, stale cleanup, missing relation repair
-- **`memory_merge`** — Combine redundant memories into one; originals invalidated
-- **`memory_visualize`** — Interactive HTML graph: semantic clusters, similarity edges, growth timeline
+- **The agent maintains itself** — recall results include inline hints about duplicates, dormant memories, and contradictions
+- **Health checks on demand** — `memory_lint` finds orphaned memories, stale entries, and missing links, then fixes what it can
+- **Merge duplicates** — `memory_merge` combines two redundant memories into one; originals are marked as superseded
+- **See your memory space** — `memory_visualize` generates an interactive HTML graph you can open in any browser
 
 ---
 
@@ -151,14 +150,15 @@ Every `memory_store` writes to LanceDB, auto-links related memories, detects con
 
 Run `memory_visualize` to generate an interactive knowledge graph of your memory space:
 
-- Force-directed layout with semantic clustering (Label Propagation)
-- Similarity edges, duplicate detection, importance distribution
+- Automatic clustering — related memories group together visually
+- Similarity edges, duplicate detection, importance sizing
 - Time filter, growth animation, cluster view
 - Self-contained HTML — open in any browser
 
 ---
 
-## Scoring Pipeline
+<details>
+<summary><strong>Scoring Pipeline (technical details)</strong></summary>
 
 ```
 Query → embedQuery() ─┐
@@ -174,6 +174,8 @@ Query → BM25 FTS ─────┘
 | **Length Normalization** | Prevents long entries from dominating (anchor: 500 chars) |
 | **Hard Min Score** | Removes irrelevant results (default: 0.35) |
 | **MMR Diversity** | Cosine similarity > 0.85 → demoted |
+
+</details>
 
 ---
 
@@ -279,12 +281,12 @@ Works with **any OpenAI-compatible embedding API**:
 
 | Tool | Description |
 |------|-------------|
-| `memory_recall` | Hybrid retrieval with batch support, relation expansion, topic filtering, maintenance hints |
-| `memory_store` | Store with auto-linking, contradiction detection, topic inference, noise filtering |
+| `memory_recall` | Search memories — supports batch queries, relation expansion, topic filtering, and inline maintenance hints |
+| `memory_store` | Save a memory — auto-links related ones, flags contradictions, infers topic, filters junk |
 | `memory_forget` | Delete by ID or search query |
-| `memory_update` | Update with temporal supersede chains |
+| `memory_update` | Update a memory; the old version is preserved in a version chain |
 | `memory_merge` | Merge two memories into one |
-| `memory_history` | Trace version history through supersede/merge chain |
+| `memory_history` | Trace version history through update/merge chains |
 
 ### Management Tools (opt-in)
 
@@ -320,7 +322,8 @@ Disable: `"enableVisualizationTools": false`
 
 ---
 
-## Database Schema
+<details>
+<summary><strong>Database Schema</strong></summary>
 
 LanceDB table `memories`:
 
@@ -333,7 +336,9 @@ LanceDB table `memories`:
 | `scope` | string | Scope identifier |
 | `importance` | float | Importance score 0-1 |
 | `timestamp` | int64 | Creation timestamp (ms) |
-| `metadata` | string (JSON) | Extended metadata (L0/L1/L2, tier, access_count, relations, topic, etc.) |
+| `metadata` | string (JSON) | Extended metadata (tier, access_count, relations, topic, etc.) |
+
+</details>
 
 ---
 
