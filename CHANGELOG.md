@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.32
+
+- fix: summary mode fetches 20 candidates, improved description
+
+
 ## 2.0.31
 
 - feat: importance propagation, recall summary mode, improved merge hints
