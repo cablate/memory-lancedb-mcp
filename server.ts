@@ -451,10 +451,11 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     })
   );
 
+  const idRefs: string[] = [];
   const text = results
     .map((r, i) => {
-      const tag = getDisplayCategoryTag(r.entry);
-      let line = `${i + 1}. [${r.entry.id}] [${tag}] ${r.entry.text}`;
+      idRefs.push(`#${i + 1}=${r.entry.id.slice(0, 8)}`);
+      let line = `${i + 1}. ${r.entry.text}`;
       // Surface lesson structure if present
       const meta = parseSmartMetadata(r.entry.metadata, r.entry);
       if (meta.lesson_trigger || meta.lesson_rule || meta.lesson_principle) {
@@ -533,17 +534,17 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
 
     if (relatedEntries.length > 0) {
       const relatedLines = relatedEntries.map((e) => {
-        const tag = getDisplayCategoryTag(e);
-        return `- [${e.id}] [${tag}] ${e.text.slice(0, 120)}${e.text.length > 120 ? "..." : ""}`;
+        return `- ${e.text.slice(0, 120)}${e.text.length > 120 ? "..." : ""}`;
       });
       relatedSection = `\n\nRelated (via links):\n${relatedLines.join("\n")}`;
     }
   }
 
-  let response = `Found ${results.length} memories:\n\n${text}${relatedSection}`;
+  let response = `${text}${relatedSection}`;
   if (hints.length > 0) {
     response += "\n\n" + hints.map((h) => `💡 ${h}`).join("\n");
   }
+  response += `\nrefs: ${idRefs.join(" ")}`;
 
   return textResult(response);
 }
@@ -650,10 +651,7 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
     metadata: stringifySmartMetadata(smartMeta),
   });
 
-  let response = `Stored: "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" in scope '${scope}'`;
-  if (topic) {
-    response += ` [topic: ${topic}]`;
-  }
+  let response = topic ? `Stored. [topic: ${topic}]` : "Stored.";
 
   // Auto-link bidirectional relations with similar memories (score > 0.7, not duplicates)
   const linkCandidates = existing.filter((e) => e.score > 0.7 && e.score <= 0.98).slice(0, 4);
@@ -676,16 +674,6 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
         );
       })
     );
-    response += `\n\nAuto-linked ${linkCandidates.length} relation${linkCandidates.length === 1 ? "" : "s"} (bidirectional).`;
-  }
-
-  // Surface similar memories for awareness
-  const similar = existing.filter((e) => e.score > 0.8 && e.score <= 0.98);
-  if (similar.length > 0) {
-    const hints = similar
-      .map((s) => `  - [${s.entry.id.slice(0, 8)}] (${(s.score * 100).toFixed(0)}%) ${s.entry.text.slice(0, 80)}`)
-      .join("\n");
-    response += `\n\nRelated (${similar.length} similar ${similar.length === 1 ? "memory" : "memories"}):\n${hints}`;
   }
 
   // Contradiction detection among similar memories (score 0.8-0.95)
@@ -693,7 +681,7 @@ async function handleMemoryStore(ctx: ServerContext, params: Record<string, unkn
   for (const candidate of contradictionCandidates) {
     if (detectContradictionHint(text, candidate.entry.text)) {
       const excerpt = candidate.entry.text.slice(0, 60);
-      response += `\n\n⚠️ Potential contradiction with [${candidate.entry.id.slice(0, 8)}]: "${excerpt}${candidate.entry.text.length > 60 ? "..." : ""}"`;
+      response += `\n⚠️ May contradict [${candidate.entry.id.slice(0, 8)}]: "${excerpt}${candidate.entry.text.length > 60 ? "..." : ""}"`;
     }
   }
 
