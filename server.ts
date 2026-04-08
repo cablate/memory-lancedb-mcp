@@ -171,7 +171,7 @@ const CORE_TOOLS = [
         summary: {
           type: "boolean",
           description:
-            "When true, returns a topic-grouped overview instead of individual memories. Useful for broad context loading at session start. Use a follow-up recall with a specific topic to drill in.",
+            'When true, returns a topic-grouped overview (topic name, count, latest date, preview) instead of individual memories. Use a broad query like "project decisions" or "recent work" to scan your memory space, then follow up with a normal recall on a specific topic to drill in.',
         },
       },
       required: ["query"],
@@ -427,8 +427,9 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     }
   }
 
-  // Fetch more candidates when time-filtering to compensate for post-filter loss
-  const fetchLimit = sinceTs ? Math.min(limit * 3, 20) : limit;
+  // Fetch more candidates for summary mode or time-filtering
+  const isSummary = params.summary === true;
+  const fetchLimit = isSummary ? 20 : sinceTs ? Math.min(limit * 3, 20) : limit;
 
   // Execute all queries (parallel for batch) and merge results
   const allResults = await Promise.all(
