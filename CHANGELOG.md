@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.28
+
+- docs: update README (EN + ZH) with batch recall, relation-aware recall, token optimization, XML tags
+
+
 ## 2.0.27
 
 - feat: wrap recall response in XML tags for cleaner parsing
