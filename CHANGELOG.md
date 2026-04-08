@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.31
+
+- feat: importance propagation, recall summary mode, improved merge hints
+
+
 ## 2.0.30
 
 - docs: rewrite README (EN + ZH) with plain language
