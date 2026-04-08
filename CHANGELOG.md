@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.23
+
+- feat: relation-aware recall — 1-hop expansion via linked memories
+
+
 ## 2.0.22
 
 - docs: sync README_ZH.md with latest features

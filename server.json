@@ -1,6 +1,6 @@
 {
   "name": "io.github.cablate/memory-lancedb",
-  "version": "2.0.22",
+  "version": "2.0.23",
   "description": "MCP server for LanceDB-backed long-term memory with hybrid retrieval (Vector + BM25), cross-encoder rerank, multi-scope isolation, and memory lifecycle management",
   "repository": {
     "url": "https://github.com/cablate/memory-lancedb-mcp",
@@ -10,7 +10,7 @@
     {
       "registry_name": "npm",
       "name": "@cablate/memory-lancedb-mcp",
-      "version": "2.0.22",
+      "version": "2.0.23",
       "runtime": "node",
       "environment_variables": [
         {
