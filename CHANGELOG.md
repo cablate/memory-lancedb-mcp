@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.27
+
+- feat: wrap recall response in XML tags for cleaner parsing
+
+
 ## 2.0.26
 
 - fix: auto-scale batch recall limit by query count
