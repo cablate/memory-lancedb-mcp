@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.26
+
+- fix: auto-scale batch recall limit by query count
+
+
 ## 2.0.25
 
 - feat: batch recall — accept queries array for multi-keyword search
