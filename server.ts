@@ -406,7 +406,8 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     return textResult("Provide 'query' or 'queries' parameter.");
   }
 
-  const limit = clampInt(Number(params.limit) || 5, 1, 20);
+  const baseLimit = clampInt(Number(params.limit) || 5, 1, 20);
+  const limit = allQueries.length > 1 ? Math.min(baseLimit * allQueries.length, 20) : baseLimit;
   const scope = params.scope as string | undefined;
   const category = params.category as string | undefined;
   const sinceTs = parseSince(params.since as string | undefined);
