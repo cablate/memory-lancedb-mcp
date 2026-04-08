@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.29
+
+- docs: overhaul README (EN + ZH) — product-style layout
+
+
 ## 2.0.28
 
 - docs: update README (EN + ZH) with batch recall, relation-aware recall, token optimization, XML tags
