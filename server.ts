@@ -577,11 +577,11 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     }
   }
 
-  let response = `${text}${relatedSection}`;
+  let response = `<memories>\n${text}${relatedSection}\n</memories>`;
   if (hints.length > 0) {
-    response += "\n\n" + hints.map((h) => `💡 ${h}`).join("\n");
+    response += `\n<hints>\n${hints.map((h) => `💡 ${h}`).join("\n")}\n</hints>`;
   }
-  response += `\nrefs: ${idRefs.join(" ")}`;
+  response += `\n<refs>${idRefs.join(" ")}</refs>`;
 
   return textResult(response);
 }
