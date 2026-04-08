@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.30
+
+- docs: rewrite README (EN + ZH) with plain language
+
+
 ## 2.0.29
 
 - docs: overhaul README (EN + ZH) — product-style layout
