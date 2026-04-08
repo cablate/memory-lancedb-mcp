@@ -149,6 +149,12 @@ const CORE_TOOLS = [
       type: "object" as const,
       properties: {
         query: { type: "string", description: "Search query for finding relevant memories" },
+        queries: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Multiple search queries in one call. Results are merged and deduplicated. Memories matching multiple queries rank higher. Use instead of calling memory_recall multiple times.",
+        },
         limit: { type: "number", description: "Max results to return (default: 5, max: 20)" },
         scope: { type: "string", description: "Specific memory scope to search in (optional)" },
         category: { type: "string", enum: MEMORY_CATEGORIES, description: "Filter by category" },
@@ -392,7 +398,14 @@ const VISUALIZATION_TOOLS = [
 // ---------------------------------------------------------------------------
 
 async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unknown>) {
-  const query = String(params.query || "");
+  const singleQuery = params.query ? String(params.query) : "";
+  const batchQueries = Array.isArray(params.queries) ? (params.queries as string[]).filter((q) => q) : [];
+  const allQueries = batchQueries.length > 0 ? batchQueries : singleQuery ? [singleQuery] : [];
+
+  if (allQueries.length === 0) {
+    return textResult("Provide 'query' or 'queries' parameter.");
+  }
+
   const limit = clampInt(Number(params.limit) || 5, 1, 20);
   const scope = params.scope as string | undefined;
   const category = params.category as string | undefined;
@@ -411,10 +424,33 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
   // Fetch more candidates when time-filtering to compensate for post-filter loss
   const fetchLimit = sinceTs ? Math.min(limit * 3, 20) : limit;
 
-  let results = filterUserMdExclusiveRecallResults(
-    await retrieveWithRetry(ctx.retriever, { query, limit: fetchLimit, scopeFilter, category, source: "manual" }),
-    ctx.workspaceBoundary
+  // Execute all queries (parallel for batch) and merge results
+  const allResults = await Promise.all(
+    allQueries.map((q) =>
+      retrieveWithRetry(ctx.retriever, { query: q, limit: fetchLimit, scopeFilter, category, source: "manual" }).then(
+        (r) => filterUserMdExclusiveRecallResults(r, ctx.workspaceBoundary)
+      )
+    )
   );
+
+  // Deduplicate by ID; memories hit by multiple queries get a score boost
+  const scoreMap = new Map<string, { result: (typeof allResults)[0][0]; hitCount: number }>();
+  for (const queryResults of allResults) {
+    for (const r of queryResults) {
+      const existing = scoreMap.get(r.entry.id);
+      if (existing) {
+        existing.hitCount++;
+        if (r.score > existing.result.score) existing.result = r;
+      } else {
+        scoreMap.set(r.entry.id, { result: r, hitCount: 1 });
+      }
+    }
+  }
+
+  // Sort by: hit count (desc) then score (desc)
+  let results = Array.from(scoreMap.values())
+    .sort((a, b) => b.hitCount - a.hitCount || b.result.score - a.result.score)
+    .map((v) => v.result);
 
   if (sinceTs) {
     results = results.filter((r) => r.entry.timestamp >= sinceTs);
