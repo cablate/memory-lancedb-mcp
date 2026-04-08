@@ -86,7 +86,7 @@ This server exposes the following tools to MCP clients:
 
 | Tool             | Description                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `memory_recall`  | Search memories using hybrid retrieval (vector + keyword). Supports scope/category/time/topic filters. Returns maintenance hints (duplicates, dormant, contradictions). |
+| `memory_recall`  | Hybrid retrieval (vector + keyword) with batch support (`queries` array), relation-aware 1-hop expansion, topic filtering, and maintenance hints. Responses use XML tags (`<memories>`, `<hints>`, `<refs>`) for clean parsing. |
 | `memory_store`   | Save information to long-term memory with importance scoring and noise filtering. Auto-links related memories, detects contradictions, and auto-infers topic labels. |
 | `memory_forget`  | Delete memories by ID or search query.                                                                             |
 | `memory_update`  | Update existing memories. Temporal categories auto-supersede to preserve history.                                  |
@@ -313,6 +313,12 @@ Works with **any OpenAI-compatible embedding API**:
 - **Topic Auto-Inference**: `memory_store` infers topic labels from similar memories. Explicit `topic` param overrides.
 - **Topic Filtering**: `memory_recall` accepts a `topic` parameter to retrieve all memories under a specific topic.
 - **Recall Hints**: `memory_recall` appends maintenance hints — near-duplicate pairs, dormant memories, and contradictions among results — so agents can act on issues without separate health checks.
+
+### Batch Recall & Token Efficiency
+
+- **Batch Recall**: `memory_recall` accepts a `queries` string array — multiple searches run in parallel, results are deduplicated, and memories matching multiple queries rank higher. Limit auto-scales by query count.
+- **Relation-Aware Recall**: Results include 1-hop expansion via auto-linked relations, surfacing semantically connected memories that vector search alone would miss.
+- **Compact Responses**: IDs compressed to 8-char refs in footer, category/scope tags removed from results, store responses minimized. Output wrapped in XML tags (`<memories>`, `<hints>`, `<refs>`) for clean model parsing.
 
 ---
 

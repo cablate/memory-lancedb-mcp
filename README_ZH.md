@@ -86,7 +86,7 @@ npm install -g @cablate/memory-lancedb-mcp
 
 | 工具             | 說明                                                                       |
 | ---------------- | -------------------------------------------------------------------------- |
-| `memory_recall`  | 混合檢索搜尋記憶（向量 + 關鍵字），支援 scope/category/時間/topic 過濾。回傳結果附帶維護提示（重複、休眠、矛盾） |
+| `memory_recall`  | 混合檢索（向量 + 關鍵字），支援批次搜尋（`queries` 陣列）、關聯記憶 1-hop 展開、topic 過濾、維護提示。回傳使用 XML 標籤（`<memories>`、`<hints>`、`<refs>`）便於模型解析 |
 | `memory_store`   | 儲存資訊至長期記憶，附帶重要性評分與雜訊過濾。自動連結相關記憶、偵測矛盾、自動推導 topic 標籤 |
 | `memory_forget`  | 依 ID 或搜尋查詢刪除記憶                                                   |
 | `memory_update`  | 更新現有記憶。時間類 category 自動建立新版本以保留歷史                     |
@@ -305,6 +305,12 @@ Query → BM25 FTS ─────┘
 - **Topic 自動推導**：`memory_store` 從相似記憶推導 topic 標籤。傳入 `topic` 參數可覆蓋自動推導。
 - **Topic 過濾**：`memory_recall` 支援 `topic` 參數，一次撈出特定主題下所有記憶。
 - **Recall 提示**：`memory_recall` 在結果後附加維護提示——近似重複對、休眠記憶、結果間矛盾——讓 Agent 無需額外呼叫即可處理問題。
+
+### 批次搜尋與 Token 效率
+
+- **批次搜尋**：`memory_recall` 支援 `queries` 字串陣列——多組搜尋平行執行、結果去重合併、命中多個查詢的記憶排序更高。Limit 依查詢數量自動放大。
+- **關聯感知搜尋**：結果透過自動連結的關聯進行 1-hop 展開，找出向量搜尋單獨無法觸及的語意相關記憶。
+- **精簡回傳**：ID 壓縮為 8 碼短 ref 置於尾部、移除 category/scope 標籤、store 回傳最小化。輸出以 XML 標籤（`<memories>`、`<hints>`、`<refs>`）包裝，便於模型解析。
 
 ---
 
