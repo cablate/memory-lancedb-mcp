@@ -168,6 +168,11 @@ const CORE_TOOLS = [
           description:
             'Filter by topic label (e.g. "remotion", "invoice"). Only returns memories tagged with this topic.',
         },
+        summary: {
+          type: "boolean",
+          description:
+            "When true, returns a topic-grouped overview instead of individual memories. Useful for broad context loading at session start. Use a follow-up recall with a specific topic to drill in.",
+        },
       },
       required: ["query"],
     },
@@ -466,6 +471,49 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     });
   }
 
+  // Summary mode: group by topic and return an overview
+  if (params.summary === true) {
+    const summaryLimit = Math.min(results.length, 20);
+    const summaryResults = results.slice(0, summaryLimit);
+
+    if (summaryResults.length === 0) {
+      return textResult("No relevant memories found.");
+    }
+
+    // Group by topic
+    const groups = new Map<string, { count: number; newest: number; sample: string }>();
+    for (const r of summaryResults) {
+      const meta = parseSmartMetadata(r.entry.metadata, r.entry);
+      const topic = ((meta as Record<string, unknown>).topic as string) || "untagged";
+      const existing = groups.get(topic);
+      if (existing) {
+        existing.count++;
+        if (r.entry.timestamp > existing.newest) {
+          existing.newest = r.entry.timestamp;
+          existing.sample = r.entry.text.slice(0, 80) + (r.entry.text.length > 80 ? "..." : "");
+        }
+      } else {
+        groups.set(topic, {
+          count: 1,
+          newest: r.entry.timestamp,
+          sample: r.entry.text.slice(0, 80) + (r.entry.text.length > 80 ? "..." : ""),
+        });
+      }
+    }
+
+    // Sort groups by count desc
+    const sorted = Array.from(groups.entries()).sort((a, b) => b[1].count - a[1].count);
+    const lines = sorted.map(([topic, g]) => {
+      const age = Math.floor((Date.now() - g.newest) / 86400000);
+      const ageStr = age === 0 ? "today" : `${age}d ago`;
+      return `- **${topic}** (${g.count}) [latest: ${ageStr}] — ${g.sample}`;
+    });
+
+    return textResult(
+      `<summary>\n${summaryResults.length} memories across ${groups.size} topics:\n${lines.join("\n")}\n</summary>`
+    );
+  }
+
   results = results.slice(0, limit);
 
   if (results.length === 0) {
@@ -519,8 +567,10 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
       if (!vj?.length) continue;
       const sim = cosineSim(vi, vj);
       if (sim > 0.9) {
+        const excerptA = results[i].entry.text.slice(0, 80) + (results[i].entry.text.length > 80 ? "..." : "");
+        const excerptB = results[j].entry.text.slice(0, 80) + (results[j].entry.text.length > 80 ? "..." : "");
         hints.push(
-          `#${i + 1} and #${j + 1} are very similar (${(sim * 100).toFixed(0)}%). Consider \`memory_merge\` if redundant.`
+          `#${i + 1} and #${j + 1} overlap (${(sim * 100).toFixed(0)}%) — compare before merging:\n  #${i + 1}: "${excerptA}"\n  #${j + 1}: "${excerptB}"`
         );
       }
     }
@@ -574,6 +624,18 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
         return `- ${e.text.slice(0, 120)}${e.text.length > 120 ? "..." : ""}`;
       });
       relatedSection = `\n\nRelated (via links):\n${relatedLines.join("\n")}`;
+
+      // Importance propagation: give a small access boost to surfaced neighbors
+      await Promise.allSettled(
+        relatedEntries.map((e) => {
+          const meta = parseSmartMetadata(e.metadata, e);
+          return ctx.store.patchMetadata(
+            e.id,
+            { access_count: (meta.access_count || 0) + 0.2, last_accessed_at: now },
+            scopeFilter
+          );
+        })
+      );
     }
   }
 
