@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.24
+
+- perf: optimize tool response token efficiency
+
+
 ## 2.0.23
 
 - feat: relation-aware recall — 1-hop expansion via linked memories
