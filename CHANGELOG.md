@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.33
+
+- chore: remove legacy docs/ and duplicate CHANGELOG-v1.1.0.md
+
+
 ## 2.0.32
 
 - fix: summary mode fetches 20 candidates, improved description
