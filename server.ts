@@ -16,7 +16,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 import { loadConfig, type McpConfig } from "./config.js";
-import { MemoryStore, validateStoragePath } from "./src/store.js";
+import { MemoryEntry, MemoryStore, validateStoragePath } from "./src/store.js";
 import { createEmbedder, getVectorDimensions, type Embedder } from "./src/embedder.js";
 import { createRetriever, type MemoryRetriever, type RetrievalResult } from "./src/retriever.js";
 import { createScopeManager, type MemoryScopeManager } from "./src/scopes.js";
@@ -507,7 +507,40 @@ async function handleMemoryRecall(ctx: ServerContext, params: Record<string, unk
     }
   }
 
-  let response = `Found ${results.length} memories:\n\n${text}`;
+  // 1-hop relation expansion: surface linked memories not already in results
+  const resultIds = new Set(results.map((r) => r.entry.id));
+  const relatedIds = new Set<string>();
+  for (const r of results) {
+    const meta = parseSmartMetadata(r.entry.metadata, r.entry);
+    if (Array.isArray(meta.relations)) {
+      for (const rel of meta.relations) {
+        if (!resultIds.has(rel.targetId) && !relatedIds.has(rel.targetId)) {
+          relatedIds.add(rel.targetId);
+        }
+      }
+    }
+  }
+
+  let relatedSection = "";
+  if (relatedIds.size > 0) {
+    const relatedEntries = (
+      await Promise.all(
+        Array.from(relatedIds)
+          .slice(0, 8)
+          .map((id) => ctx.store.getById(id, scopeFilter))
+      )
+    ).filter((e): e is MemoryEntry => e !== null);
+
+    if (relatedEntries.length > 0) {
+      const relatedLines = relatedEntries.map((e) => {
+        const tag = getDisplayCategoryTag(e);
+        return `- [${e.id}] [${tag}] ${e.text.slice(0, 120)}${e.text.length > 120 ? "..." : ""}`;
+      });
+      relatedSection = `\n\nRelated (via links):\n${relatedLines.join("\n")}`;
+    }
+  }
+
+  let response = `Found ${results.length} memories:\n\n${text}${relatedSection}`;
   if (hints.length > 0) {
     response += "\n\n" + hints.map((h) => `💡 ${h}`).join("\n");
   }
