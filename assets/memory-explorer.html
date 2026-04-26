@@ -428,12 +428,14 @@ body { background: var(--bg); color: var(--text-primary); font-family: var(--fon
     <div class="tabs" id="tabs">
       <div class="tab active" data-tab="charts">Overview</div>
       <div class="tab" data-tab="clusters">Clusters</div>
+      <div class="tab" data-tab="topics">Topics</div>
       <div class="tab" data-tab="dups">Duplicates</div>
       <div class="tab" data-tab="list">All</div>
       <div class="tab" data-tab="detail">Detail</div>
     </div>
     <div id="tab-charts" class="tab-content active"></div>
     <div id="tab-clusters" class="tab-content"></div>
+    <div id="tab-topics" class="tab-content"></div>
     <div id="tab-dups" class="tab-content"></div>
     <div id="tab-list" class="tab-content">
       <div class="search-wrap"><input id="searchInput" placeholder="Search memories..." /></div>
@@ -467,14 +469,15 @@ let settled=false,ticks=0;
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
 function init(){
-  const{memories,edges,clusters,clusterInfo,duplicates}=DATA;
+  const{memories,edges,clusters,clusterInfo,topicInfo,duplicates}=DATA;
   const ts=memories.map(m=>m.timestamp).sort((a,b)=>a-b);
   timeMin=ts[0];timeMax=ts[ts.length-1];
+  const topicCount=Object.keys(topicInfo).filter(k=>k!=='_untagged').length;
   document.getElementById('subtitle').textContent=
-    `${memories.length} memories  ·  ${edges.length} connections  ·  ${Object.keys(clusterInfo).length} clusters  ·  ${duplicates.length} duplicates`;
-  buildToolbar(memories);buildCharts(memories,edges,clusterInfo,duplicates);
-  buildClusters(clusterInfo);buildDuplicates(duplicates,memories);
-  buildList(memories);buildGraph(memories,edges,clusters,clusterInfo);
+    `${memories.length} memories  ·  ${edges.length} connections  ·  ${Object.keys(clusterInfo).length} clusters  ·  ${topicCount} topics  ·  ${duplicates.length} duplicates`;
+  buildToolbar(memories);buildCharts(memories,edges,clusterInfo,topicInfo,duplicates);
+  buildClusters(clusterInfo);buildTopics(topicInfo);buildDuplicates(duplicates,memories);
+  buildList(memories);buildGraph(memories,edges,clusters,clusterInfo,topicInfo);
 }
 
 function buildToolbar(memories){
@@ -488,6 +491,7 @@ function buildToolbar(memories){
     <button class="btn active" id="vCat" onclick="setV('category')">Category</button>
     <button class="btn" id="vHp" onclick="setV('health')">Health</button>
     <button class="btn" id="vCl" onclick="setV('cluster')">Cluster</button>
+    <button class="btn" id="vTp" onclick="setV('topic')">Topic</button>
   </div><div class="sep"></div>`;
   h+=`<div class="tg"><span class="tg-label">Sim</span>
     <input type="range" id="simR" min="55" max="95" value="75">
@@ -513,14 +517,14 @@ function buildToolbar(memories){
 
 function setV(m){
   viewMode=m;
-  ['vCat','vHp','vCl'].forEach(id=>document.getElementById(id).classList.remove('active'));
-  document.getElementById(m==='category'?'vCat':m==='health'?'vHp':'vCl').classList.add('active');
+  ['vCat','vHp','vCl','vTp'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(m==='category'?'vCat':m==='health'?'vHp':m==='cluster'?'vCl':'vTp').classList.add('active');
   document.getElementById('healthLegend').classList.toggle('visible',m==='health');
   rst();
 }
 function rst(){settled=false;ticks=0;}
 
-function buildCharts(memories,edges,clusterInfo,duplicates){
+function buildCharts(memories,edges,clusterInfo,topicInfo,duplicates){
   const el=document.getElementById('tab-charts');
   const catC={};memories.forEach(m=>{catC[m.category]=(catC[m.category]||0)+1;});
   const deg=new Array(memories.length).fill(0);
@@ -530,12 +534,15 @@ function buildCharts(memories,edges,clusterInfo,duplicates){
   const impB=[0,0,0,0,0];
   memories.forEach(m=>{const i=m.importance;if(i<0.5)impB[0]++;else if(i<0.6)impB[1]++;else if(i<0.7)impB[2]++;else if(i<0.8)impB[3]++;else impB[4]++;});
   const topC=Object.entries(clusterInfo).sort((a,b)=>b[1].size-a[1].size).slice(0,6);
+  const topicCount=Object.keys(topicInfo).filter(k=>k!=='_untagged').length;
+  const topT=Object.entries(topicInfo).filter(([k])=>k!=='_untagged').sort((a,b)=>b[1].size-a[1].size).slice(0,6);
 
   el.innerHTML=`
     <div class="stat-grid">
       <div class="stat-card"><div class="num">${memories.length}</div><div class="label">Memories</div></div>
       <div class="stat-card"><div class="num" style="color:var(--accent)">${edges.length}</div><div class="label">Connections</div></div>
       <div class="stat-card"><div class="num" style="color:var(--purple)">${Object.keys(clusterInfo).length}</div><div class="label">Clusters</div></div>
+      <div class="stat-card"><div class="num" style="color:var(--success)">${topicCount}</div><div class="label">Topics</div></div>
       <div class="stat-card"><div class="num" style="color:var(--danger)">${duplicates.length}</div><div class="label">Duplicates</div></div>
       <div class="stat-card"><div class="num" style="color:var(--success)">${avgD}</div><div class="label">Avg Degree</div></div>
       <div class="stat-card"><div class="num" style="color:var(--warning)">${dormant}</div><div class="label">Dormant</div></div>
@@ -546,6 +553,8 @@ function buildCharts(memories,edges,clusterInfo,duplicates){
     <div class="bar-chart" id="impBars"></div>
     <div class="section-title">Top Clusters</div>
     <div class="bar-chart" id="tcBars"></div>
+    <div class="section-title">Top Topics</div>
+    <div class="bar-chart" id="ttBars"></div>
   `;
 
   // Donut
@@ -570,6 +579,11 @@ function buildCharts(memories,edges,clusterInfo,duplicates){
   document.getElementById('tcBars').innerHTML=topC.map(([id,info])=>
     `<div class="bar-row"><div class="bar-label" title="${esc(info.label)}">${esc(info.label.substring(0,12))}</div><div class="bar-track"><div class="bar-fill" style="width:${info.size/tcM*100}%;background:${cColor(parseInt(id))}"></div></div><div class="bar-num">${info.size}</div></div>`
   ).join('');
+
+  const ttM=topT[0]?.[1].size||1;
+  document.getElementById('ttBars').innerHTML=topT.map(([key,info],idx)=>
+    `<div class="bar-row"><div class="bar-label" title="${esc(key)}">${esc(key.substring(0,12))}</div><div class="bar-track"><div class="bar-fill" style="width:${info.size/ttM*100}%;background:${CP[idx%CP.length]}"></div></div><div class="bar-num">${info.size}</div></div>`
+  ).join('');
 }
 
 function buildClusters(ci){
@@ -582,6 +596,24 @@ function buildClusters(ci){
     ).join('')}</div>`;
   el.querySelectorAll('.cl-item').forEach(it=>{
     it.onclick=()=>{window._hlSet=new Set(DATA.clusterInfo[it.dataset.cl].members);selNode=null;setV('cluster');};
+  });
+}
+
+function buildTopics(ti){
+  const el=document.getElementById('tab-topics');
+  const sorted=Object.entries(ti).sort((a,b)=>{
+    if(a[0]==='_untagged')return 1;if(b[0]==='_untagged')return -1;
+    return b[1].size-a[1].size;
+  });
+  el.innerHTML=`<div class="section-title">Topics (${sorted.length})</div>
+    <p style="font-size:11px;color:var(--text-tertiary);margin-bottom:10px">Click to highlight in graph</p>
+    <div class="cluster-list">${sorted.map(([key,info],idx)=>{
+      const isUn=key==='_untagged';
+      const col=isUn?'var(--text-tertiary)':CP[idx%CP.length];
+      return `<div class="cl-item" data-tp="${key}"><div class="cl-dot" style="background:${col}"></div><div class="cl-name${isUn?' style="color:var(--text-tertiary);font-style:italic"':''}" title="${esc(key)}">${esc(key)}</div><div class="cl-count">${info.size}</div></div>`;
+    }).join('')}</div>`;
+  el.querySelectorAll('.cl-item').forEach(it=>{
+    it.onclick=()=>{window._hlSet=new Set(DATA.topicInfo[it.dataset.tp].members);selNode=null;setV('topic');};
   });
 }
 
@@ -628,6 +660,7 @@ function showDet(idx){
   p.innerHTML=`<button class="close-btn" onclick="closeDet()">Close</button>
     <div class="d-badge" style="background:${c}18;color:${c}">${CL[m.category]||m.category}</div>
     <div class="d-cluster" style="color:${cColor(cid)}">Cluster: ${esc(ci.label)} (${ci.size})</div>
+    ${m.topic?`<div class="d-cluster" style="color:var(--text-secondary)">Topic: ${esc(m.topic)}</div>`:''}
     <div class="d-meta">${d} · imp:${m.importance} · acc:${m.access_count}</div>
     <div class="d-body">${esc(m.text)}</div>
     <div class="d-nbrs"><h4>Neighbors (${nbrs.length})</h4>
@@ -669,7 +702,7 @@ function startPb(){
 function stopPb(){clearInterval(pbTimer);window._pbVis=null;document.getElementById('pbPlay').style.display='';document.getElementById('pbPause').style.display='none';rst();}
 
 // Graph
-function buildGraph(mems,edges,clusters,ci){
+function buildGraph(mems,edges,clusters,ci,ti){
   const cvs=document.getElementById('graph'),ctx=cvs.getContext('2d');
   let W,H,ox=0,oy=0,sc=1,dragN=null,dragM=false,isP=false,psx,psy;
   function resize(){const r=cvs.parentElement.getBoundingClientRect();W=cvs.width=r.width;H=cvs.height=r.height;rst();}
@@ -682,9 +715,15 @@ function buildGraph(mems,edges,clusters,ci){
   gEdges=edges;
 
   function vis(n){if(!catVis[n.category])return false;if(n.timestamp<timeMin||n.timestamp>timeMax)return false;if(window._pbVis&&!window._pbVis.has(n.idx))return false;return true;}
+  // Build topic-to-color map
+  const topicKeys=Object.keys(ti).filter(k=>k!=='_untagged').sort((a,b)=>ti[b].size-ti[a].size);
+  const tpCol={};topicKeys.forEach((k,i)=>{tpCol[k]=CP[i%CP.length];});
+  tpCol['_untagged']='#5c5f6e';
+
   function nCol(n){
     if(viewMode==='health'){if(n.access_count===0)return'#e5604d';if(n.access_count<=2)return'#d4a037';if(n.access_count<=5)return'#c9a227';return'#3daf6e';}
     if(viewMode==='cluster')return cColor(clusters[n.idx]);
+    if(viewMode==='topic')return tpCol[n.topic||'_untagged']||'#5c5f6e';
     return CC[n.category]||'#5c5f6e';
   }
 
@@ -728,6 +767,19 @@ function buildGraph(mems,edges,clusters,ci){
       });
     }
 
+    // Topic bg
+    if(viewMode==='topic'&&!hl){
+      const tb={};nodes.forEach(n=>{if(!vs.has(n.idx))return;const t=n.topic||'_untagged';
+        if(!tb[t])tb[t]={mnX:1e9,mnY:1e9,mxX:-1e9,mxY:-1e9,ct:0};
+        const b=tb[t];b.mnX=Math.min(b.mnX,n.x);b.mnY=Math.min(b.mnY,n.y);b.mxX=Math.max(b.mxX,n.x);b.mxY=Math.max(b.mxY,n.y);b.ct++;});
+      Object.entries(tb).forEach(([key,b])=>{if(b.ct<3||key==='_untagged')return;const p=35;const col=tpCol[key]||'#5c5f6e';
+        const cx=(b.mnX+b.mxX)/2,cy=(b.mnY+b.mxY)/2,rx=(b.mxX-b.mnX)/2+p,ry=(b.mxY-b.mnY)/2+p;
+        ctx.beginPath();ctx.ellipse(cx,cy,Math.max(rx,25),Math.max(ry,25),0,0,Math.PI*2);
+        ctx.fillStyle=col+'0d';ctx.strokeStyle=col+'25';ctx.lineWidth=1;ctx.fill();ctx.stroke();
+        if(DATA.topicInfo[key]&&DATA.topicInfo[key].size>=3){ctx.font='11px Outfit,sans-serif';ctx.fillStyle=col+'70';ctx.textAlign='center';ctx.fillText(key.substring(0,15),cx,b.mnY-12);}
+      });
+    }
+
     // Edges
     ae.forEach(e=>{const a=nodes[e.from],b=nodes[e.to];const s=(e.sim-simTh)/(1-simTh);
       const isHL=selNode!==null&&(e.from===selNode||e.to===selNode);
@@ -763,8 +815,9 @@ function buildGraph(mems,edges,clusters,ci){
     const f=fN(w.x,w.y);
     if(f){cvs.style.cursor='pointer';const c=nCol(f);const d=new Date(f.timestamp).toLocaleDateString('en',{month:'short',day:'numeric'});const cid=DATA.clusters[f.idx];
       tip.style.display='block';tip.style.left=Math.min(e.clientX+16,innerWidth-400)+'px';tip.style.top=Math.min(e.clientY+16,innerHeight-180)+'px';
+      const tp=f.topic?`<span style="color:${tpCol[f.topic]||'var(--text-tertiary)'}">${esc(f.topic)}</span> · `:'';
       tip.innerHTML=`<div class="tt-badge" style="background:${c}18;color:${c}">${CL[f.category]||f.category}</div>
-        <div class="tt-meta">${d} · imp:${f.importance} · acc:${f.access_count} · ${esc(DATA.clusterInfo[cid].label.substring(0,20))}</div>
+        <div class="tt-meta">${d} · imp:${f.importance} · acc:${f.access_count} · ${tp}${esc(DATA.clusterInfo[cid].label.substring(0,20))}</div>
         <div class="tt-text">${esc(f.text.substring(0,180))}${f.text.length>180?'...':''}</div>`;
     }else{cvs.style.cursor='default';tip.style.display='none';}
   };

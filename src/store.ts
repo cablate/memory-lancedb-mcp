@@ -620,7 +620,14 @@ export class MemoryStore {
     return true;
   }
 
-  async list(scopeFilter?: string[], category?: string, limit = 20, offset = 0): Promise<MemoryEntry[]> {
+  async list(
+    scopeFilter?: string[],
+    category?: string,
+    limit = 20,
+    offset = 0,
+    since?: number,
+    until?: number,
+  ): Promise<MemoryEntry[]> {
     await this.ensureInitialized();
 
     let query = this.table!.query();
@@ -635,6 +642,13 @@ export class MemoryStore {
 
     if (category) {
       conditions.push(`category = '${escapeSqlLiteral(category)}'`);
+    }
+
+    if (since) {
+      conditions.push(`timestamp >= ${since}`);
+    }
+    if (until) {
+      conditions.push(`timestamp <= ${until}`);
     }
 
     if (conditions.length > 0) {

@@ -28,6 +28,7 @@ interface VisMemory {
   access_count: number;
   confidence: number;
   memory_category: string;
+  topic: string | null;
 }
 
 interface VisEdge {
@@ -42,11 +43,18 @@ interface ClusterInfo {
   size: number;
 }
 
+interface TopicInfo {
+  label: string;
+  members: number[];
+  size: number;
+}
+
 interface VisData {
   memories: VisMemory[];
   edges: VisEdge[];
   clusters: number[];
   clusterInfo: Record<string, ClusterInfo>;
+  topicInfo: Record<string, TopicInfo>;
   duplicates: VisEdge[];
 }
 
@@ -149,6 +157,21 @@ function buildClusterInfo(memories: VisMemory[], clusters: number[]): Record<str
 }
 
 // ---------------------------------------------------------------------------
+// Topic info generation
+// ---------------------------------------------------------------------------
+
+function buildTopicInfo(memories: VisMemory[]): Record<string, TopicInfo> {
+  const info: Record<string, TopicInfo> = {};
+  memories.forEach((m, i) => {
+    const key = m.topic ?? "_untagged";
+    if (!info[key]) info[key] = { label: key, members: [], size: 0 };
+    info[key].members.push(i);
+    info[key].size++;
+  });
+  return info;
+}
+
+// ---------------------------------------------------------------------------
 // Main: generate visualization HTML
 // ---------------------------------------------------------------------------
 
@@ -204,6 +227,7 @@ export async function generateVisualization(store: MemoryStore, options: Visuali
       access_count: Number((meta.access_count ?? meta.accessCount ?? 0) as number),
       confidence: Number((meta.confidence ?? 0.5) as number),
       memory_category: (meta.memory_category as string) || "events",
+      topic: (meta.topic as string) || null,
     });
     vectors.push(vec);
   }
@@ -239,6 +263,7 @@ export async function generateVisualization(store: MemoryStore, options: Visuali
   const clusterEdges = edges.filter((e) => e.sim >= 0.7);
   const clusters = labelPropagation(memories.length, clusterEdges);
   const clusterInfo = buildClusterInfo(memories, clusters);
+  const topicInfo = buildTopicInfo(memories);
 
   // Duplicate detection (sim >= 0.90)
   const duplicates: VisEdge[] = [];
@@ -261,11 +286,13 @@ export async function generateVisualization(store: MemoryStore, options: Visuali
     edges,
     clusters,
     clusterInfo,
+    topicInfo,
     duplicates,
   };
 
   // Load template and inject data
-  const templatePath = join(__dirname, "..", "assets", "memory-explorer.html");
+  // __dirname = dist/src/ after build; assets/ is at package root (two levels up)
+  const templatePath = join(__dirname, "..", "..", "assets", "memory-explorer.html");
   const template = readFileSync(templatePath, "utf8");
   const html = template.replace("__MEMORY_DATA__", JSON.stringify(data));
 

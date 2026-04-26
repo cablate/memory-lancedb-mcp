@@ -293,14 +293,26 @@ const MANAGEMENT_TOOLS = [
   },
   {
     name: "memory_list",
-    description: "List recent memories with optional filtering by scope and category.",
+    description: "List memories sorted by time (newest first). No search query needed — returns raw data. Use for time-range data retrieval in scheduled tasks.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        limit: { type: "number", description: "Max memories to list (default: 10, max: 50)" },
+        limit: { type: "number", description: "Max memories to list (default: 10, max: 200)" },
         scope: { type: "string", description: "Filter by specific scope (optional)" },
         category: { type: "string", enum: MEMORY_CATEGORIES, description: "Filter by category" },
         offset: { type: "number", description: "Number of memories to skip (default: 0)" },
+        since: {
+          type: "string",
+          description: 'Time range start. Shorthand like "3d" (3 days), "1w" (1 week), "2h" (2 hours), or ISO timestamp.',
+        },
+        until: {
+          type: "string",
+          description: "Time range end. Same format as since.",
+        },
+        full: {
+          type: "boolean",
+          description: "Show full text content instead of truncated 100-char preview (default: false)",
+        },
       },
     },
   },
@@ -1189,10 +1201,13 @@ async function handleMemoryStats(ctx: ServerContext, params: Record<string, unkn
 }
 
 async function handleMemoryList(ctx: ServerContext, params: Record<string, unknown>) {
-  const limit = clampInt(Number(params.limit) || 10, 1, 50);
+  const limit = clampInt(Number(params.limit) || 10, 1, 200);
   const offset = clampInt(Number(params.offset) || 0, 0, 1000);
   const scope = params.scope as string | undefined;
   const category = params.category as string | undefined;
+  const sinceTs = parseSince(params.since as string | undefined);
+  const untilTs = parseSince(params.until as string | undefined);
+  const showFull = params.full === true;
 
   let scopeFilter = ctx.scopeManager.getAccessibleScopes("main");
   if (scope) {
@@ -1200,18 +1215,19 @@ async function handleMemoryList(ctx: ServerContext, params: Record<string, unkno
     else return textResult(`Access denied to scope: ${scope}`);
   }
 
-  const entries = await ctx.store.list(scopeFilter, category, limit, offset);
+  const entries = await ctx.store.list(scopeFilter, category, limit, offset, sinceTs, untilTs);
   if (entries.length === 0) return textResult("No memories found.");
 
   const text = entries
     .map((entry, i) => {
       const date = new Date(entry.timestamp).toISOString().split("T")[0];
       const tag = getDisplayCategoryTag(entry);
-      return `${offset + i + 1}. [${entry.id}] [${tag}] ${entry.text.slice(0, 100)}${entry.text.length > 100 ? "..." : ""} (${date})`;
+      const content = showFull ? entry.text : `${entry.text.slice(0, 100)}${entry.text.length > 100 ? "..." : ""}`;
+      return `${offset + i + 1}. [${entry.id}] [${tag}] ${content} (${date})`;
     })
     .join("\n");
 
-  return textResult(`Recent memories (showing ${entries.length}):\n\n${text}`);
+  return textResult(`Memories (showing ${entries.length}):\n\n${text}`);
 }
 
 async function handleSelfImprovementLog(_ctx: ServerContext, params: Record<string, unknown>) {
