@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@lancedb/lancedb": "^0.26.2",
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "@sinclair/typebox": "0.34.48",
     "apache-arrow": "18.1.0",
     "openai": "^6.21.0"
