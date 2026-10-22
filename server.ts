@@ -293,7 +293,8 @@ const MANAGEMENT_TOOLS = [
   },
   {
     name: "memory_list",
-    description: "List memories sorted by time (newest first). No search query needed — returns raw data. Use for time-range data retrieval in scheduled tasks.",
+    description:
+      "List memories sorted by time (newest first). No search query needed — returns raw data. Use for time-range data retrieval in scheduled tasks.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -303,7 +304,8 @@ const MANAGEMENT_TOOLS = [
         offset: { type: "number", description: "Number of memories to skip (default: 0)" },
         since: {
           type: "string",
-          description: 'Time range start. Shorthand like "3d" (3 days), "1w" (1 week), "2h" (2 hours), or ISO timestamp.',
+          description:
+            'Time range start. Shorthand like "3d" (3 days), "1w" (1 week), "2h" (2 hours), or ISO timestamp.',
         },
         until: {
           type: "string",
