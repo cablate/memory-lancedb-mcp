@@ -626,7 +626,7 @@ export class MemoryStore {
     limit = 20,
     offset = 0,
     since?: number,
-    until?: number,
+    until?: number
   ): Promise<MemoryEntry[]> {
     await this.ensureInitialized();
 
